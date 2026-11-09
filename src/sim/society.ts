@@ -103,21 +103,22 @@ export interface SocietyParams {
   govKeep: number;
 }
 
-// Tuned by scripts/sweep.ts (sweep1, 2026-11-09): on 16 fresh seeds, tribes 100%, hierarchy 94%,
-// government 94%, about 9 major realms holding 89% of organisms. See tuning/best.json.
+// Tuned by scripts/sweep.ts (sweep2, 2026-11-09). On 16 fresh seeds x 15,000 ticks every run reached
+// Tribes, Hierarchy and Government (medians: year 39 and year 63), with about 10 major realms
+// holding 69% of organisms and 2.3 rebellions or coups per 1,000 ticks. See tuning/best.json.
 export const DEFAULT_SOCIETY: SocietyParams = {
   maxN: 1400,
   foodRes: 16,
-  foodZones: 6,
-  zoneSigma: 0.22,
+  foodZones: 4,
+  zoneSigma: 0.35,
   zoneSpread: 0.55,
-  foodBase: 0.05,
-  regrow: 0.00753,
-  metabolism: 0.0016,
-  harvestRate: 0.012,
+  foodBase: 0.0961,
+  regrow: 0.00387,
+  metabolism: 0.00181,
+  harvestRate: 0.00845,
   harvestHalf: 0.25,
   reproduceAt: 2,
-  lifespan: 3090,
+  lifespan: 2543,
   lifeSpread: 0.25,
   sizeMutation: 0.06,
   aggrMutation: 0.06,
@@ -127,44 +128,44 @@ export const DEFAULT_SOCIETY: SocietyParams = {
   senseRadius: 0.16,
   sepRadius: 0.04,
   followDist: 0.03,
-  rankDrop: 0.05,
-  sibSpread: 0.022,
+  rankDrop: 0.0436,
+  sibSpread: 0.0219,
   wSpread: 0.9,
-  followerForage: 0.35,
+  followerForage: 0.626,
   wSep: 1.2,
   wKin: 0.25,
-  wFood: 0.6,
+  wFood: 1.07,
   wFollow: 1.0,
   wAlign: 0.5,
   wWander: 0.25,
-  wFlee: 0.209,
-  wChase: 0.858,
+  wFlee: 0.779,
+  wChase: 0.767,
   contactRadius: 0.03,
   battleRadius: 0.1,
-  fightChance: 0.0262,
-  kinPeace: 0.552,
-  gamma: 2.12,
-  decisive: 1.64,
-  damage: 0.422,
+  fightChance: 0.0386,
+  kinPeace: 0.13,
+  gamma: 2.61,
+  decisive: 1.42,
+  damage: 0.191,
   plunder: 0.5,
   fightCooldown: 90,
-  deferRatio: 1.85,
-  joinBase: 0.154,
-  joinThreat: 1,
-  span: 5,
-  tribute: 0.316,
+  deferRatio: 1.7,
+  joinBase: 0.0483,
+  joinThreat: 0.751,
+  span: 4,
+  tribute: 0.241,
   welfareBelow: 0.5,
   welfareGive: 0.3,
   kappa: 1,
-  rebelRatio: 1.47,
-  rebelChance: 0.00424,
-  foreignRebel: 2.2,
-  coupRatio: 2.84,
-  rebelThreat: 2.17,
-  legitimacy: 1.17,
-  breakDist: 0.688,
-  heirRatio: 1.25,
-  inherit: 0.892,
+  rebelRatio: 1.43,
+  rebelChance: 0.0406,
+  foreignRebel: 2.38,
+  coupRatio: 2.06,
+  rebelThreat: 2.85,
+  legitimacy: 0.0833,
+  breakDist: 0.592,
+  heirRatio: 1.93,
+  inherit: 0.704,
   checkEvery: 24,
   realmMin: 5,
   notableSize: 15,
@@ -300,6 +301,7 @@ export class Society {
   rootCount = 0;
 
   private rng: Rng;
+  private nameRng: Rng;
   private order: Int32Array;
   private freeStack: Int32Array;
   private freeTop = 0;
@@ -325,6 +327,7 @@ export class Society {
   constructor(params: SocietyParams, rng: Rng, founders: Founder[]) {
     this.p = params;
     this.rng = rng;
+    this.nameRng = rng.fork();
     const M = (this.M = params.maxN);
     this.alive = new Uint8Array(M);
     this.pos = new Float32Array(3 * M);
@@ -1157,8 +1160,9 @@ export class Society {
       if (members >= this.p.govSize) {
         this.stats.successions++;
         const pct = Math.round(keep * 100);
-        this.emit('succession', `${r.name} outlives its ruler: the heir keeps ${pct}% of ${members}.`);
-        this.reach(L_GOVERNMENT, `Government: ${r.name} survives the death of its ruler.`);
+        const detail = `${r.name} outlives its ruler, and the heir keeps ${pct}% of ${members}.`;
+        if (this.levels[L_GOVERNMENT] < 0 && this.levels[L_HIERARCHY] >= 0) this.reach(L_GOVERNMENT, `Government: ${detail}`);
+        else this.emit('succession', detail);
       }
     } else {
       if (members >= this.p.govSize) {
@@ -1232,7 +1236,7 @@ export class Society {
       if (rid < 0 && size >= p.realmMin) {
         rid = this.realms.length;
         this.realms.push({
-          id: rid, name: realmName(this.rng, this.names), tribe: tribe[r], founded: this.tick, ended: -1,
+          id: rid, name: realmName(this.nameRng, this.names), tribe: tribe[r], founded: this.tick, ended: -1,
           rulers: 1, peak: size, size, depth: subDepth[r], tribes: 1, sovereign: r, notable: false,
         });
         realmOf[r] = rid;

@@ -20,12 +20,20 @@ const query = new URLSearchParams(location.search);
 const speed = Number(query.get('speed'));
 const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 const canvas = document.getElementById('scene') as HTMLCanvasElement;
-const app = new App(canvas, {
-  overrides: overridesFromQuery(),
-  speed: [1, 2, 4, 8].includes(speed) ? speed : undefined,
-  reducedMotion,
-});
-app.start(seedFromHash() ?? randomSeed());
-app.run();
-// Dev only: drive the loop from the console when the tab is in the background.
-if (import.meta.env.DEV) (window as unknown as { __syntropy: App }).__syntropy = app;
+try {
+  const app = new App(canvas, {
+    overrides: overridesFromQuery(),
+    speed: [1, 2, 4, 8].includes(speed) ? speed : undefined,
+    reducedMotion,
+  });
+  app.start(seedFromHash() ?? randomSeed());
+  app.run();
+  // Dev only: drive the loop from the console when the tab is in the background.
+  if (import.meta.env.DEV) (window as unknown as { __syntropy: App }).__syntropy = app;
+} catch (err) {
+  console.error(err);
+  const note = document.createElement('p');
+  note.className = 'nogl';
+  note.textContent = 'Syntropy draws with WebGL, and this browser could not start it. Try a recent Chrome, Safari, Firefox or Edge.';
+  document.body.appendChild(note);
+}

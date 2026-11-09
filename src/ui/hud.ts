@@ -123,10 +123,8 @@ export class Hud {
 
   private colorize(text: string): string {
     const esc = text.replace(/[&<>]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' })[c]!);
-    const names = [...this.realmTribe.keys(), ...TRIBE_NAMES];
-    if (!names.length) return esc;
-    const re = new RegExp(`\\b(${names.map((n) => n.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|')})\\b`, 'g');
-    return esc.replace(re, (m) => {
+    // Realm and tribe names are capitalised words; colour each one that we know.
+    return esc.replace(/\b[A-Z][a-z]+\b/g, (m) => {
       const t = this.realmTribe.get(m) ?? TRIBE_NAMES.indexOf(m as (typeof TRIBE_NAMES)[number]);
       return t >= 0 ? `<b style="color:${TRIBE_STROKE[t]}">${m}</b>` : m;
     });

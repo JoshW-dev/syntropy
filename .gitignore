@@ -7,3 +7,4 @@ tuning/runs/
 *-viewport.jpeg
 *-fullpage.jpeg
 !tuning/*.log
+.env*

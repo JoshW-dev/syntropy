@@ -17,15 +17,17 @@ const POINT_VERT = /* glsl */ `
   uniform float uMinPx;
   varying vec3 vColor;
   varying float vRing;
+  varying float vRingAlpha;
   varying float vPx;
   varying float vDepth;
   void main() {
+    vRingAlpha = ring;
     vec4 mv = modelViewMatrix * vec4(position, 1.0);
     float px = size > 0.0 ? max(uMinPx * min(1.0, size * 40.0), uScale * size / -mv.z) : 0.0;
-    float pad = ring > 0.5 ? max(5.0, px * 0.45) : 0.0;
+    float pad = ring > 0.0 ? max(5.0, px * 0.45) : 0.0;
     gl_PointSize = px + pad * 2.0;
     vColor = color;
-    vRing = ring > 0.5 ? (px / (px + pad * 2.0)) : 0.0;
+    vRing = ring > 0.0 ? (px / (px + pad * 2.0)) : 0.0;
     vPx = gl_PointSize;
     vDepth = -mv.z;
     gl_Position = projectionMatrix * mv;
@@ -40,6 +42,7 @@ const POINT_FRAG = /* glsl */ `
   uniform float uDpr;
   varying vec3 vColor;
   varying float vRing;
+  varying float vRingAlpha;
   varying float vPx;
   varying float vDepth;
   void main() {
@@ -54,7 +57,7 @@ const POINT_FRAG = /* glsl */ `
     if (vRing > 0.0 && r > body + aa) {
       // The ruler's ring: a thin circle around the body.
       float d = abs(r - (1.0 - line));
-      float a = 1.0 - smoothstep(line * 0.5, line * 0.5 + aa, d);
+      float a = (1.0 - smoothstep(line * 0.5, line * 0.5 + aa, d)) * vRingAlpha;
       if (a <= 0.01) discard;
       gl_FragColor = vec4(ink, a);
       return;
@@ -202,7 +205,7 @@ export class Bodies {
     this.drawIndex = new Int32Array(M).fill(-1);
 
     const F = society.F;
-    const perCell = 2;
+    const perCell = 1;
     const nFood = F * F * F * perCell;
     const foodPos = new Float32Array(nFood * 3);
     this.foodLevel = new Float32Array(nFood);
@@ -271,7 +274,7 @@ export class Bodies {
       this.col[3 * n + 2] = c[2];
       const followers = Math.max(1, subSize[i]);
       this.size[n] = 0.036 * Math.sqrt(size[i]) * (1 + 0.3 * Math.log10(followers)) * appear;
-      this.ring[n] = lord[i] < 0 && followers >= p.realmMin ? 1 : 0;
+      this.ring[n] = lord[i] < 0 && followers >= p.realmMin ? Math.min(1, 0.3 + (followers - p.realmMin) / 25) : 0;
       this.slotOf[n] = i;
       this.drawIndex[i] = n;
       n++;
@@ -320,7 +323,7 @@ export class Bodies {
       const per = this.foodLevel.length / food.length;
       for (let c = 0; c < food.length; c++) {
         // Only fertile ground shows: grazed patches thin out and regrow.
-        const v = cap[c] > 0.3 ? Math.min(0.42, food[c] * 0.5) * appear : 0;
+        const v = cap[c] > 0.3 ? Math.min(0.36, food[c] * 0.45) * appear : 0;
         for (let q = 0; q < per; q++) this.foodLevel[c * per + q] = v;
       }
       this.foodGeo.getAttribute('level').needsUpdate = true;

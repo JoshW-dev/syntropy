@@ -50,6 +50,7 @@ export class App {
   private acc = 0;
   private last = 0;
   private seenEvents = 0;
+  private realmsSeen = 0;
   private cellsReachedGen = -1;
   private pointer: { x: number; y: number } | null = null;
   private tmp = new THREE.Vector3();
@@ -105,6 +106,7 @@ export class App {
     this.phaseT = 0;
     this.acc = 0;
     this.seenEvents = 0;
+    this.realmsSeen = 0;
     this.cellsReachedGen = -1;
     this.hud.clearChronicle();
     this.hud.setSeed(seed);
@@ -241,7 +243,10 @@ export class App {
 
   private drainEvents(): void {
     const s = this.society!;
-    for (const r of s.realms) this.hud.rememberRealm(r.name, r.tribe);
+    for (; this.realmsSeen < s.realms.length; this.realmsSeen++) {
+      const r = s.realms[this.realmsSeen];
+      this.hud.rememberRealm(r.name, r.tribe);
+    }
     const fresh = s.emitted - this.seenEvents;
     if (fresh <= 0) return;
     const list = s.events.slice(-Math.min(fresh, 5));

@@ -409,6 +409,17 @@ a:focus-visible {
   color: var(--ink);
 }
 
+.nogl {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  max-width: 420px;
+  margin: 0;
+  text-align: center;
+  color: var(--text);
+}
+
 /* ---------- small screens ---------- */
 
 @media (max-width: 760px) {
