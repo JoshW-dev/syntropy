@@ -1,23 +1,30 @@
-// Levels 2-5: Organisms, Tribes, Hierarchy, Government.
+// Organisms, polities and one allegiance rule.
 //
-// Organisms live in a cube, eat from a food field that regrows, breed, age and die.
-// Each organism may follow one other organism: its lord. Those links form trees, and a tree
-// is a polity. Five local rules do everything else:
-//   1. Eat & breed     : harvest food where you stand; split when rich. A newborn follows its parent.
-//   2. Stay with kin   : drift toward kin; a lone organism (or a whole small polity) defers to a
-//                        much stronger kin polity nearby, more readily when foreigners crowd it.
-//   3. The strong take : when members of two polities touch they may fight; local numbers decide,
-//                        and a decisive winner takes the loser (and everyone below it) as followers.
-//   4. Tribute flows up: followers pass a share of their income to their lord, who can feed a
-//                        starving follower. A lord can only manage a few direct followers, so new
-//                        ones are handed down the tree (span of control), which makes ranks.
-//   5. Rebels & heirs  : a follower that grows strong relative to its ruler may break away, or seize
-//                        the throne. When a ruler dies, the strongest follower inherits, and the
-//                        others accept the heir only if it is clearly stronger than they are.
-// Nothing above mentions tribes, ranks or government. The ladder levels are measured, not scripted.
+// An organism is a body of lattice cells that held its shape and came loose (see world.ts). Its mass
+// is its cell count. It eats from a regrowing food field at a rate that scales with mass^0.75
+// (Kleiber's law), pays a basal cost on the same scale, builds a new cell when it has surplus energy,
+// burns a cell when it starves, divides by fission when it reaches splitMass, and dies of age.
+//
+// Each organism may follow one other organism (its lord). Those links form trees, and a tree is a
+// polity. The model has exactly three social mechanisms, all local:
+//   1. Conflict  : members of different polities that touch may fight. The outcome follows a Tullock
+//                  contest between the local masses of the two sides; the loser loses cells to the
+//                  winner, which eats them.
+//   2. Tribute   : a follower passes a fraction of its income to its lord, so income cascades upward.
+//   3. Allegiance: every so often, and right after losing a fight, an organism chooses whom to
+//                  follow, or no one, by one rule: maximise the log-odds of prevailing locally (allied
+//                  mass against unallied mass within its perception radius) minus the log-cost of
+//                  tribute, a small attention cost per direct follower of the candidate lord, and a
+//                  distance cost. Kin discount tribute by relatedness and threaten one another less.
+// No rule mentions tribes, chiefs, ranks, conquest, rebellion, heirs or government. Joining, conquest,
+// secession and succession all come out of rule 3, and the ladder levels are measured in survey()
+// and resolveSuccessions().
 
 import type { Rng } from './rng.ts';
 import { TRIBE_NAMES, realmName } from './names.ts';
+
+/** Most cells one body can hold. */
+export const MAXB = 32;
 
 export interface SocietyParams {
   maxN: number;
@@ -29,27 +36,34 @@ export interface SocietyParams {
   foodBase: number;
   regrow: number;
   // bodies
+  /** Lattice edge in cells; maps lattice coordinates to the world cube [-1, 1]. */
+  latticeSize: number;
+  /** A body cell's size as a fraction of a lattice cell, once the organism has condensed. */
+  bodyScale: number;
+  minMass: number;
+  splitMass: number;
   metabolism: number;
   harvestRate: number;
   harvestHalf: number;
-  reproduceAt: number;
+  moveCost: number;
+  /** Energy to build one cell; burning a cell returns half of it. */
+  cellCost: number;
+  /** Energy per cell above which the body grows. */
+  growAt: number;
+  /** Energy per cell needed to divide. */
+  splitAt: number;
   lifespan: number;
   lifeSpread: number;
-  sizeMutation: number;
-  aggrMutation: number;
+  // movement
   maxSpeed: number;
   accel: number;
   damping: number;
-  // senses and movement
   senseRadius: number;
   sepRadius: number;
   followDist: number;
-  /** A follower settles this far below its lord, so every realm hangs from its ruler like a tree. */
-  rankDrop: number;
-  /** Followers of the same lord spread apart, further for bigger branches, so trees fan out. */
+  /** Followers of the same lord spread apart, further for bigger branches. */
   sibSpread: number;
   wSpread: number;
-  /** How much a follower forages on its own instead of only keeping station. */
   followerForage: number;
   wSep: number;
   wKin: number;
@@ -60,139 +74,135 @@ export interface SocietyParams {
   wFlee: number;
   wChase: number;
   // conflict
-  contactRadius: number;
   battleRadius: number;
   fightChance: number;
+  /** Kin fight this much less often, and count this much as a threat. */
   kinPeace: number;
+  /** Tullock exponent: returns to local numbers in a fight. */
   gamma: number;
-  decisive: number;
-  damage: number;
-  plunder: number;
+  /** Cells the loser of a fight loses to the winner. */
+  bite: number;
   fightCooldown: number;
-  // deference, tribute, span of control
-  deferRatio: number;
-  joinBase: number;
-  joinThreat: number;
-  span: number;
+  // allegiance
   tribute: number;
-  welfareBelow: number;
-  welfareGive: number;
-  kappa: number;
-  // rebellion and succession
-  rebelRatio: number;
-  rebelChance: number;
-  foreignRebel: number;
-  coupRatio: number;
-  /** How strongly nearby foreigners suppress rebellion. */
-  rebelThreat: number;
-  /** How much each past succession steadies a realm against rebellion and at the next succession. */
-  legitimacy: number;
-  breakDist: number;
-  heirRatio: number;
-  inherit: number;
-  checkEvery: number;
+  /** Relatedness discount on tribute paid to a kin lord (Hamilton's r). */
+  kinShare: number;
+  /** Utility cost per direct follower the candidate lord already has. */
+  attention: number;
+  /** Utility cost per perception radius of distance to the candidate lord. */
+  distanceCost: number;
+  /** Utility bonus for keeping the current choice. */
+  loyalty: number;
+  /**
+   * Fear: weight on unallied mass as a threat in the allegiance rule (1 = the model). At 0 nobody
+   * fears anyone, and the rule has no reason to pay tribute to anyone.
+   */
+  fear: number;
+  /**
+   * Control loss per rank (Williamson 1967): protection reaching a follower decays with every link
+   * between it and the ruler, so following someone at depth d costs controlLoss * (d + 1).
+   */
+  controlLoss: number;
+  choiceEvery: number;
+  /** Softmax temperature of the choice. 0 = always the best option. */
+  temperature: number;
   // what counts as each ladder level
   realmMin: number;
   notableSize: number;
   tribeMin: number;
   tribeCount: number;
+  /** A tribe: a polity of tribeMin+ in which at least this share are the ruler's kin. */
+  tribeKin: number;
   hierSize: number;
   hierDepth: number;
   hierTribes: number;
+  /** Hierarchy: at least this share of the realm's members come from other tribes than the ruler's. */
+  hierForeign: number;
   govSize: number;
   govKeep: number;
+  /** Ticks after a ruler dies before we check who its members follow. */
+  govWindow: number;
 }
 
-// Tuned by scripts/sweep.ts (sweep2, 2026-11-09). On 16 fresh seeds x 15,000 ticks every run reached
-// Tribes, Hierarchy and Government (medians: year 39 and year 63), with about 10 major realms
-// holding 69% of organisms and 2.3 rebellions or coups per 1,000 ticks. See tuning/best.json.
+// Tuned by scripts/sweep.ts (v2-sweep1, then v2-sweep2 with a depth term, 2026-11-09) over 27
+// parameters. On 16 fresh seeds every world reached Tribes, Hierarchy and Government, at medians of
+// 900, 1,770 and 3,676 ticks (about 15 s, 30 s and 61 s at 1x). No rule in this file mentions any of
+// those levels. See tuning/best.json. That search still held followers a fixed drop below their lord;
+// the drop now exists only in the renderer, and followDist went from 0.030 to 0.036 so realms graze
+// as wide a volume as before (late population about 450 on 24 seeds, as with the drop).
 export const DEFAULT_SOCIETY: SocietyParams = {
   maxN: 1400,
   foodRes: 16,
-  foodZones: 4,
-  zoneSigma: 0.35,
+  foodZones: 6,
+  zoneSigma: 0.4,
   zoneSpread: 0.55,
-  foodBase: 0.0961,
-  regrow: 0.00387,
-  metabolism: 0.00181,
-  harvestRate: 0.00845,
+  foodBase: 0.0792,
+  regrow: 0.0115,
+  latticeSize: 48,
+  bodyScale: 0.62,
+  minMass: 3,
+  splitMass: 12,
+  metabolism: 0.000709,
+  harvestRate: 0.0146,
   harvestHalf: 0.25,
-  reproduceAt: 2,
-  lifespan: 2543,
+  moveCost: 0.3,
+  cellCost: 0.5,
+  growAt: 0.783,
+  splitAt: 1,
+  lifespan: 3347,
   lifeSpread: 0.25,
-  sizeMutation: 0.06,
-  aggrMutation: 0.06,
-  maxSpeed: 0.0045,
+  maxSpeed: 0.0042,
   accel: 0.0007,
   damping: 0.9,
   senseRadius: 0.16,
-  sepRadius: 0.04,
-  followDist: 0.03,
-  rankDrop: 0.0436,
-  sibSpread: 0.0219,
+  sepRadius: 0.0383,
+  followDist: 0.036,
+  sibSpread: 0.018,
   wSpread: 0.9,
-  followerForage: 0.626,
+  followerForage: 0.706,
   wSep: 1.2,
-  wKin: 0.25,
-  wFood: 1.07,
-  wFollow: 1.0,
+  wKin: 0.821,
+  wFood: 1,
+  wFollow: 1,
   wAlign: 0.5,
   wWander: 0.25,
-  wFlee: 0.779,
-  wChase: 0.767,
-  contactRadius: 0.03,
+  wFlee: 1.07,
+  wChase: 1.01,
   battleRadius: 0.1,
-  fightChance: 0.0386,
-  kinPeace: 0.13,
-  gamma: 2.61,
-  decisive: 1.42,
-  damage: 0.191,
-  plunder: 0.5,
+  fightChance: 0.0142,
+  kinPeace: 0.596,
+  gamma: 2.64,
+  bite: 1,
   fightCooldown: 90,
-  deferRatio: 1.7,
-  joinBase: 0.0483,
-  joinThreat: 0.751,
-  span: 4,
-  tribute: 0.241,
-  welfareBelow: 0.5,
-  welfareGive: 0.3,
-  kappa: 1,
-  rebelRatio: 1.43,
-  rebelChance: 0.0406,
-  foreignRebel: 2.38,
-  coupRatio: 2.06,
-  rebelThreat: 2.85,
-  legitimacy: 0.0833,
-  breakDist: 0.592,
-  heirRatio: 1.93,
-  inherit: 0.704,
-  checkEvery: 24,
+  tribute: 0.118,
+  kinShare: 0.3,
+  attention: 0,
+  distanceCost: 0.098,
+  loyalty: 0.222,
+  fear: 1,
+  controlLoss: 0.0766,
+  choiceEvery: 100,
+  temperature: 0.0162,
   realmMin: 5,
   notableSize: 15,
-  tribeMin: 12,
+  tribeMin: 10,
   tribeCount: 3,
-  hierSize: 40,
-  hierDepth: 4,
+  tribeKin: 0.75,
+  hierSize: 30,
+  hierDepth: 3,
   hierTribes: 2,
-  govSize: 40,
+  hierForeign: 0.2,
+  govSize: 30,
   govKeep: 0.6,
+  govWindow: 240,
 };
 
-export interface Founder {
-  x: number;
-  y: number;
-  z: number;
-  size: number;
-  tribe: number;
-}
-
-export type EventKind = 'level' | 'realm' | 'conquest' | 'join' | 'rebellion' | 'coup' | 'succession' | 'fragment' | 'fall';
+export type EventKind = 'level' | 'life' | 'realm' | 'conquest' | 'join' | 'rebellion' | 'succession' | 'fragment' | 'fall';
 
 export interface SimEvent {
   tick: number;
   kind: EventKind;
   text: string;
-  /** Ladder index (0-4) for 'level' events. */
   level?: number;
 }
 
@@ -201,7 +211,6 @@ export interface Realm {
   name: string;
   tribe: number;
   founded: number;
-  /** Tick the realm ended, or -1 while it stands. */
   ended: number;
   rulers: number;
   peak: number;
@@ -214,13 +223,16 @@ export interface Realm {
 
 export interface SocietyStats {
   births: number;
+  spawned: number;
   deaths: number;
   starved: number;
+  killed: number;
   fights: number;
   conquests: number;
   joins: number;
+  secessions: number;
+  /** Secessions big enough to make the chronicle. */
   rebellions: number;
-  coups: number;
   successions: number;
   fragmentations: number;
   maxDepth: number;
@@ -231,25 +243,48 @@ export interface SocietyStats {
 export interface Sample {
   tick: number;
   pop: number;
-  /** Realms with realmMin+ members. */
   realms: number;
-  /** Realms with notableSize+ members, and how many organisms they hold. */
   major: number;
   organized: number;
   largest: number;
   depth: number;
+  /** Normalised negentropy of the partition of organisms into polities (see syntropy()). */
+  syntropy: number;
+  meanMass: number;
 }
 
-/** Ladder indices. 0 = Cells, 1 = Organisms (both owned by the app), 2-4 measured here. */
+/** A finished succession test, kept for analysis. */
+export interface SuccessionRecord {
+  tick: number;
+  members: number;
+  keep: number;
+  /** Share of the dead ruler's realm held by its largest direct branch at the moment of death. */
+  heirShare: number;
+  /** Mean distance of members from the realm's centre at death, in perception radii. */
+  spread: number;
+  survived: boolean;
+}
+
 export const L_TRIBES = 2;
 export const L_HIERARCHY = 3;
 export const L_GOVERNMENT = 4;
 
 const NONE = -1;
 
+interface PendingSuccession {
+  realm: number;
+  due: number;
+  slots: number[];
+  uids: number[];
+  heirShare: number;
+  spread: number;
+}
+
 export class Society {
   readonly p: SocietyParams;
   readonly M: number;
+  /** World units per lattice cell. */
+  readonly cell: number;
   tick = 0;
   count = 0;
 
@@ -258,10 +293,14 @@ export class Society {
   prev: Float32Array;
   vel: Float32Array;
   energy: Float32Array;
-  size: Float32Array;
+  mass: Uint8Array;
+  radius: Float32Array;
+  body: Int8Array;
   age: Float32Array;
   life: Float32Array;
-  aggr: Float32Array;
+  born: Int32Array;
+  /** 1 = came off the lattice, 2 = born by fission. */
+  origin: Uint8Array;
   tribe: Uint8Array;
   uid: Int32Array;
   cooldown: Uint16Array;
@@ -270,15 +309,14 @@ export class Society {
   nextSib: Int32Array;
   prevSib: Int32Array;
   nChild: Int32Array;
-  /** Derived at the start of every tick. */
   root: Int32Array;
   depth: Int32Array;
   subSize: Int32Array;
   subDepth: Int32Array;
-  power: Float32Array;
-  own: Float32Array;
+  subMass: Float32Array;
+  /** Per root: members that share the ruler's tribe. */
+  kinCount: Int32Array;
   tribeMask: Uint8Array;
-  threat: Float32Array;
   realmOf: Int32Array;
 
   readonly F: number;
@@ -287,18 +325,18 @@ export class Society {
   zones: { x: number; y: number; z: number }[] = [];
 
   events: SimEvent[] = [];
-  /** Total events ever emitted (events[] keeps only the latest few hundred). */
   emitted = 0;
   realms: Realm[] = [];
-  /** Tick each ladder level was first reached, or -1. Indices 0 and 1 are set by the app. */
   levels: number[] = [-1, -1, -1, -1, -1];
   stats: SocietyStats = {
-    births: 0, deaths: 0, starved: 0, fights: 0, conquests: 0, joins: 0, rebellions: 0,
-    coups: 0, successions: 0, fragmentations: 0, maxDepth: 0, maxRealm: 0, popPeak: 0,
+    births: 0, spawned: 0, deaths: 0, starved: 0, killed: 0, fights: 0, conquests: 0, joins: 0,
+    secessions: 0, rebellions: 0, successions: 0, fragmentations: 0, maxDepth: 0, maxRealm: 0, popPeak: 0,
   };
   history: Sample[] = [];
-  /** Roots in BFS order come first in `order`; this many of them. */
+  successions: SuccessionRecord[] = [];
   rootCount = 0;
+  /** Mechanisms an experiment can switch off (see scripts/experiments.ts). */
+  ablate = { tribute: false, conflict: false, allegiance: false, kin: false, attention: false };
 
   private rng: Rng;
   private nameRng: Rng;
@@ -314,20 +352,38 @@ export class Society {
   private contactA: Int32Array;
   private contactB: Int32Array;
   private nContacts = 0;
+  private lostTo: Int32Array;
+  private queue: Int32Array;
+  private queued: Uint8Array;
+  private queueLen = 0;
+  private stamp: Int32Array;
+  private stampNow = 0;
+  private rootStamp: Int32Array;
+  private rootMass: Float32Array;
+  private rootHost: Float32Array;
+  private rootBest: Int32Array;
+  private rootCost: Float32Array;
+  private touched: Int32Array;
+  private pending: PendingSuccession[] = [];
+  private pendingUid = new Set<number>();
   private nextUid = 1;
   private names = new Set<string>();
-  // spatial hash
   private gN: number;
-  private cell: number;
+  private cellSize: number;
   private cellStart: Int32Array;
   private cellItems: Int32Array;
   private cellOf: Int32Array;
   private cursor: Int32Array;
 
-  constructor(params: SocietyParams, rng: Rng, founders: Founder[]) {
+  /**
+   * `homelands` (world coordinates) put the fertile zones where the lattice lineages began, so each
+   * tribe starts on its own land; without them the zones are placed at random.
+   */
+  constructor(params: SocietyParams, rng: Rng, homelands?: { x: number; y: number; z: number }[]) {
     this.p = params;
     this.rng = rng;
     this.nameRng = rng.fork();
+    this.cell = 2 / params.latticeSize;
     const M = (this.M = params.maxN);
     this.alive = new Uint8Array(M);
     this.pos = new Float32Array(3 * M);
@@ -335,12 +391,14 @@ export class Society {
     this.vel = new Float32Array(3 * M);
     this.acc = new Float32Array(3 * M);
     this.wander = new Float32Array(3 * M);
-    this.sqrtSub = new Float32Array(M);
     this.energy = new Float32Array(M);
-    this.size = new Float32Array(M);
+    this.mass = new Uint8Array(M);
+    this.radius = new Float32Array(M);
+    this.body = new Int8Array(M * MAXB * 3);
     this.age = new Float32Array(M);
     this.life = new Float32Array(M);
-    this.aggr = new Float32Array(M);
+    this.born = new Int32Array(M);
+    this.origin = new Uint8Array(M);
     this.tribe = new Uint8Array(M);
     this.uid = new Int32Array(M);
     this.cooldown = new Uint16Array(M);
@@ -353,24 +411,34 @@ export class Society {
     this.depth = new Int32Array(M);
     this.subSize = new Int32Array(M);
     this.subDepth = new Int32Array(M);
-    this.power = new Float32Array(M);
-    this.own = new Float32Array(M);
+    this.subMass = new Float32Array(M);
+    this.kinCount = new Int32Array(M);
     this.tribeMask = new Uint8Array(M);
-    this.threat = new Float32Array(M);
     this.realmOf = new Int32Array(M).fill(NONE);
     this.tribIn = new Float32Array(M);
     this.tribNext = new Float32Array(M);
     this.order = new Int32Array(M);
     this.kids = new Int32Array(M);
+    this.sqrtSub = new Float32Array(M);
     this.contactA = new Int32Array(M * 4);
     this.contactB = new Int32Array(M * 4);
+    this.lostTo = new Int32Array(M).fill(NONE);
+    this.queue = new Int32Array(M);
+    this.queued = new Uint8Array(M);
+    this.stamp = new Int32Array(M);
+    this.rootStamp = new Int32Array(M);
+    this.rootMass = new Float32Array(M);
+    this.rootHost = new Float32Array(M);
+    this.rootBest = new Int32Array(M);
+    this.rootCost = new Float32Array(M);
+    this.touched = new Int32Array(M);
     this.freeStack = new Int32Array(M);
     for (let i = 0; i < M; i++) this.freeStack[i] = M - 1 - i;
     this.freeTop = M;
 
-    this.cell = params.senseRadius;
-    this.gN = Math.max(1, Math.ceil(2 / this.cell));
-    const nCells = this.gN * this.gN * this.gN;
+    this.cellSize = params.senseRadius;
+    this.gN = Math.max(1, Math.ceil(2 / this.cellSize));
+    const nCells = this.gN ** 3;
     this.cellStart = new Int32Array(nCells + 1);
     this.cursor = new Int32Array(nCells);
     this.cellItems = new Int32Array(M);
@@ -379,33 +447,17 @@ export class Society {
     this.F = params.foodRes;
     this.food = new Float32Array(this.F ** 3);
     this.cap = new Float32Array(this.F ** 3);
-    this.placeFood();
-
-    for (const f of founders) {
-      const i = this.alloc();
-      if (i < 0) break;
-      this.pos[3 * i] = clamp(f.x, -0.95, 0.95);
-      this.pos[3 * i + 1] = clamp(f.y, -0.95, 0.95);
-      this.pos[3 * i + 2] = clamp(f.z, -0.95, 0.95);
-      this.size[i] = clamp(f.size, 0.5, 2.2);
-      this.tribe[i] = f.tribe;
-      this.energy[i] = this.size[i] * params.reproduceAt * rng.range(0.4, 0.8);
-      this.age[i] = rng.range(0, 0.3) * params.lifespan;
-      this.aggr[i] = rng.range(0.2, 0.8);
-    }
-    this.prev.set(this.pos);
+    this.placeFood(homelands);
     this.levels[0] = 0;
-    this.levels[1] = 0;
-    this.computeTree();
   }
 
   // ---------------------------------------------------------------- setup
 
-  private placeFood(): void {
+  private placeFood(homelands?: { x: number; y: number; z: number }[]): void {
     const { p, rng, F } = this;
-    const centres: { x: number; y: number; z: number; amp: number }[] = [];
-    for (let k = 0; k < p.foodZones; k++) {
-      let best: { x: number; y: number; z: number } | null = null;
+    const centres: { x: number; y: number; z: number; amp: number }[] = (homelands ?? []).map((h) => ({ ...h, amp: rng.range(0.75, 1) }));
+    for (let k = centres.length; k < p.foodZones; k++) {
+      let best = { x: 0, y: 0, z: 0 };
       let bestScore = -1;
       for (let attempt = 0; attempt < 30; attempt++) {
         const v = randomUnit(rng);
@@ -418,7 +470,7 @@ export class Society {
           best = c;
         }
       }
-      centres.push({ ...best!, amp: rng.range(0.75, 1) });
+      centres.push({ ...best, amp: rng.range(0.75, 1) });
     }
     this.zones = centres.map(({ x, y, z }) => ({ x, y, z }));
     const inv2s2 = 1 / (2 * p.zoneSigma * p.zoneSigma);
@@ -429,16 +481,85 @@ export class Society {
           const wy = ((y + 0.5) / F) * 2 - 1;
           const wz = ((z + 0.5) / F) * 2 - 1;
           let c = p.foodBase;
-          for (const o of centres) {
-            const d2 = (wx - o.x) ** 2 + (wy - o.y) ** 2 + (wz - o.z) ** 2;
-            c += o.amp * Math.exp(-d2 * inv2s2);
-          }
+          for (const o of centres) c += o.amp * Math.exp(-((wx - o.x) ** 2 + (wy - o.y) ** 2 + (wz - o.z) ** 2) * inv2s2);
           const i = x + F * (y + F * z);
           this.cap[i] = Math.min(1, c);
           this.food[i] = this.cap[i];
         }
       }
     }
+  }
+
+  /**
+   * A form that held its shape comes off the lattice and becomes one organism, or several if it
+   * is bigger than one body can be. `cells` holds lattice coordinates [x, y, z, ...].
+   */
+  spawnForm(cells: number[], lineage: number): number[] {
+    const n = cells.length / 3;
+    if (n < this.p.minMass) return [];
+    const idx = Array.from({ length: n }, (_, k) => k);
+    // Split along the longest extent into pieces no bigger than a body that is about to divide.
+    const ext = [0, 1, 2].map((a) => {
+      let lo = Infinity;
+      let hi = -Infinity;
+      for (let k = 0; k < n; k++) {
+        lo = Math.min(lo, cells[3 * k + a]);
+        hi = Math.max(hi, cells[3 * k + a]);
+      }
+      return hi - lo;
+    });
+    const axis = ext.indexOf(Math.max(...ext));
+    idx.sort((a, b) => cells[3 * a + axis] - cells[3 * b + axis]);
+    const pieces = Math.ceil(n / Math.max(this.p.minMass, this.p.splitMass - 2));
+    const per = Math.ceil(n / pieces);
+    const made: number[] = [];
+    for (let q = 0; q < pieces; q++) {
+      const part = idx.slice(q * per, (q + 1) * per);
+      if (part.length < this.p.minMass) continue;
+      const i = this.alloc();
+      if (i < 0) break;
+      let cx = 0;
+      let cy = 0;
+      let cz = 0;
+      for (const k of part) {
+        cx += cells[3 * k];
+        cy += cells[3 * k + 1];
+        cz += cells[3 * k + 2];
+      }
+      const ox = Math.round(cx / part.length);
+      const oy = Math.round(cy / part.length);
+      const oz = Math.round(cz / part.length);
+      let m = 0;
+      const base = i * MAXB * 3;
+      for (const k of part) {
+        if (m >= MAXB) break;
+        this.body[base + 3 * m] = clampInt(cells[3 * k] - ox, -127, 127);
+        this.body[base + 3 * m + 1] = clampInt(cells[3 * k + 1] - oy, -127, 127);
+        this.body[base + 3 * m + 2] = clampInt(cells[3 * k + 2] - oz, -127, 127);
+        m++;
+      }
+      this.mass[i] = m;
+      this.updateRadius(i);
+      const G = this.p.latticeSize;
+      this.pos[3 * i] = ((ox + 0.5) / G) * 2 - 1;
+      this.pos[3 * i + 1] = ((oy + 0.5) / G) * 2 - 1;
+      this.pos[3 * i + 2] = ((oz + 0.5) / G) * 2 - 1;
+      this.prev[3 * i] = this.pos[3 * i];
+      this.prev[3 * i + 1] = this.pos[3 * i + 1];
+      this.prev[3 * i + 2] = this.pos[3 * i + 2];
+      this.tribe[i] = lineage;
+      this.energy[i] = m * this.p.growAt * this.rng.range(0.6, 0.9);
+      this.age[i] = 0;
+      this.origin[i] = 1;
+      this.queueChoice(i);
+      this.stats.spawned++;
+      made.push(i);
+    }
+    if (made.length && this.levels[1] < 0) {
+      this.levels[1] = this.tick;
+      this.emit('level', `Organisms: a ${TRIBE_NAMES[lineage]} form holds together and comes loose from the lattice.`, 1);
+    }
+    return made;
   }
 
   private alloc(): number {
@@ -456,13 +577,18 @@ export class Society {
     this.cooldown[i] = 0;
     this.tribIn[i] = 0;
     this.tribNext[i] = 0;
+    this.lostTo[i] = NONE;
     this.vel[3 * i] = this.vel[3 * i + 1] = this.vel[3 * i + 2] = 0;
     const w = randomUnit(this.rng);
     this.wander[3 * i] = w[0];
     this.wander[3 * i + 1] = w[1];
     this.wander[3 * i + 2] = w[2];
-    this.age[i] = 0;
+    this.born[i] = this.tick;
     this.life[i] = this.p.lifespan * (1 + this.p.lifeSpread * this.rng.range(-1, 1));
+    this.root[i] = i;
+    this.depth[i] = 0;
+    this.subSize[i] = 1;
+    this.subMass[i] = 0;
     return i;
   }
 
@@ -473,6 +599,10 @@ export class Society {
     this.tribIn[i] = 0;
     this.tribNext[i] = 0;
     this.freeStack[this.freeTop++] = i;
+  }
+
+  private updateRadius(i: number): void {
+    this.radius[i] = 0.55 * this.cell * this.p.bodyScale * Math.cbrt(this.mass[i]) + 0.004;
   }
 
   // ---------------------------------------------------------------- tree ops
@@ -517,34 +647,17 @@ export class Society {
     return k;
   }
 
-  /**
-   * Make x (and everyone below it) follow y. When y already manages `span` direct followers,
-   * x is handed to the nearest, least-loaded of them, and so on down. Returns the new lord, or -1.
-   */
-  private attach(x: number, y: number): number {
-    if (this.isAbove(x, y)) return NONE;
-    let target = y;
-    const { pos } = this;
-    for (let guard = 0; this.nChild[target] >= this.p.span && guard < 64; guard++) {
-      let best = NONE;
-      let bestScore = Infinity;
-      for (let c = this.firstChild[target]; c >= 0; c = this.nextSib[c]) {
-        if (c === x) continue;
-        const dx = pos[3 * c] - pos[3 * x];
-        const dy = pos[3 * c + 1] - pos[3 * x + 1];
-        const dz = pos[3 * c + 2] - pos[3 * x + 2];
-        const score = (dx * dx + dy * dy + dz * dz + 0.0004) * (1 + 0.5 * this.nChild[c]);
-        if (score < bestScore) {
-          bestScore = score;
-          best = c;
-        }
-      }
-      if (best < 0) break;
-      target = best;
-    }
+  private attach(x: number, y: number): boolean {
+    if (this.isAbove(x, y)) return false;
     this.unlink(x);
-    this.link(x, target);
-    return target;
+    this.link(x, y);
+    return true;
+  }
+
+  private queueChoice(i: number): void {
+    if (this.queued[i]) return;
+    this.queued[i] = 1;
+    this.queue[this.queueLen++] = i;
   }
 
   // ---------------------------------------------------------------- tick
@@ -556,21 +669,19 @@ export class Society {
     this.buildGrid();
     this.economy();
     this.moveAndMeet();
-    this.resolveContacts();
-    this.socialChecks();
+    if (!this.ablate.conflict) this.resolveContacts();
+    this.choices();
     this.deaths();
     this.births();
     this.regrow();
+    this.resolveSuccessions();
     this.tick++;
   }
 
   private computeTree(): void {
-    const { M, alive, lord, firstChild, nextSib, order, depth, root, p } = this;
+    const { M, alive, lord, firstChild, nextSib, order, depth, root } = this;
     let len = 0;
-    for (let i = 0; i < M; i++) {
-      if (!alive[i]) continue;
-      depth[i] = -1;
-    }
+    for (let i = 0; i < M; i++) if (alive[i]) depth[i] = -1;
     for (let i = 0; i < M; i++) {
       if (alive[i] && lord[i] < 0) {
         order[len++] = i;
@@ -588,30 +699,28 @@ export class Society {
       }
     }
     if (len < this.count) {
-      // A cycle slipped through. Break it and start over; attach() should prevent this.
       for (let i = 0; i < M; i++) if (alive[i] && depth[i] < 0) this.unlink(i);
       this.computeTree();
       return;
     }
-    const reproduce = p.reproduceAt;
     for (let h = 0; h < len; h++) {
       const i = order[h];
-      const s = this.size[i];
-      const e = clamp(this.energy[i] / (s * reproduce), 0, 1.5);
-      const own = s * (0.6 + 0.4 * e);
-      this.own[i] = own;
-      this.power[i] = own;
       this.subSize[i] = 1;
       this.subDepth[i] = 0;
+      this.subMass[i] = this.mass[i];
       this.tribeMask[i] = 1 << this.tribe[i];
+      this.kinCount[i] = 0;
     }
-    const kappa = p.kappa;
+    for (let h = 0; h < len; h++) {
+      const i = order[h];
+      if (this.tribe[i] === this.tribe[root[i]]) this.kinCount[root[i]]++;
+    }
     for (let h = len - 1; h >= 0; h--) {
       const i = order[h];
       const L = lord[i];
       if (L < 0) continue;
       this.subSize[L] += this.subSize[i];
-      this.power[L] += kappa * this.power[i];
+      this.subMass[L] += this.subMass[i];
       if (this.subDepth[i] + 1 > this.subDepth[L]) this.subDepth[L] = this.subDepth[i] + 1;
       this.tribeMask[L] |= this.tribeMask[i];
     }
@@ -637,10 +746,7 @@ export class Society {
       cursor[c] = cellStart[c];
     }
     cellStart[cursor.length] = acc;
-    for (let i = 0; i < M; i++) {
-      if (!alive[i]) continue;
-      cellItems[cursor[cellOf[i]]++] = i;
-    }
+    for (let i = 0; i < M; i++) if (alive[i]) cellItems[cursor[cellOf[i]]++] = i;
   }
 
   private foodIndex(x: number, y: number, z: number): number {
@@ -652,32 +758,33 @@ export class Society {
   }
 
   private economy(): void {
-    const { M, alive, p, pos, vel, energy, size, lord, food, tribIn, tribNext } = this;
+    const { M, alive, p, pos, vel, energy, mass, lord, food, tribIn, tribNext } = this;
+    const tribute = this.ablate.tribute ? 0 : p.tribute;
     for (let i = 0; i < M; i++) {
       if (!alive[i]) continue;
+      const m = mass[i];
+      const k = Math.pow(m, 0.75);
       const c = this.foodIndex(pos[3 * i], pos[3 * i + 1], pos[3 * i + 2]);
       const f = food[c];
-      const s = size[i];
-      let intake = (p.harvestRate * s * f) / (f + p.harvestHalf);
+      let intake = (p.harvestRate * k * f) / (f + p.harvestHalf);
       if (intake > f) intake = f;
       food[c] = f - intake;
       let income = intake + tribIn[i];
       const L = lord[i];
-      if (L >= 0) {
-        const pay = p.tribute * income;
+      if (L >= 0 && tribute > 0) {
+        const pay = tribute * income;
         tribNext[L] += pay;
         income -= pay;
       }
-      const vmax = p.maxSpeed / Math.sqrt(s);
+      const vmax = this.vmax(i);
       const sp2 = vel[3 * i] ** 2 + vel[3 * i + 1] ** 2 + vel[3 * i + 2] ** 2;
-      energy[i] += income - p.metabolism * s * (1 + (0.6 * sp2) / (vmax * vmax));
-      if (L >= 0 && energy[i] < p.welfareBelow * s) {
-        const spare = energy[L] - 2 * p.welfareBelow * size[L];
-        if (spare > 0) {
-          const give = Math.min(spare * 0.5, p.welfareGive * s);
-          energy[L] -= give;
-          energy[i] += give;
-        }
+      energy[i] += income - p.metabolism * k * (1 + (p.moveCost * sp2) / (vmax * vmax));
+      // The body follows the energy budget: build a cell on surplus, burn one in deficit.
+      if (energy[i] > p.growAt * m * 1.15 && m < p.splitMass) {
+        if (this.grow(i)) energy[i] -= p.cellCost;
+      } else if (energy[i] < 0 && m > p.minMass) {
+        this.shrink(i);
+        energy[i] += p.cellCost * 0.5;
       }
       this.age[i] += 1;
       if (this.cooldown[i] > 0) this.cooldown[i]--;
@@ -687,7 +794,61 @@ export class Society {
     this.tribNext.fill(0);
   }
 
-  /** Trilinear food value and gradient at a point. Returns [value, gx, gy, gz]. */
+  private vmax(i: number): number {
+    return this.p.maxSpeed * Math.pow(8 / Math.max(1, this.mass[i]), 0.25);
+  }
+
+  /** Add one cell on the body's surface. */
+  private grow(i: number): boolean {
+    const m = this.mass[i];
+    if (m >= MAXB) return false;
+    const base = i * MAXB * 3;
+    for (let attempt = 0; attempt < 8; attempt++) {
+      const from = this.rng.int(m);
+      const axis = this.rng.int(3);
+      const dir = this.rng.chance(0.5) ? 1 : -1;
+      const nx = this.body[base + 3 * from] + (axis === 0 ? dir : 0);
+      const ny = this.body[base + 3 * from + 1] + (axis === 1 ? dir : 0);
+      const nz = this.body[base + 3 * from + 2] + (axis === 2 ? dir : 0);
+      let taken = false;
+      for (let q = 0; q < m && !taken; q++) {
+        taken = this.body[base + 3 * q] === nx && this.body[base + 3 * q + 1] === ny && this.body[base + 3 * q + 2] === nz;
+      }
+      if (taken || Math.abs(nx) > 6 || Math.abs(ny) > 6 || Math.abs(nz) > 6) continue;
+      this.body[base + 3 * m] = nx;
+      this.body[base + 3 * m + 1] = ny;
+      this.body[base + 3 * m + 2] = nz;
+      this.mass[i] = m + 1;
+      this.updateRadius(i);
+      return true;
+    }
+    return false;
+  }
+
+  /** Remove the cell farthest from the body's centre (the most exposed one). */
+  private shrink(i: number, n = 1): void {
+    const base = i * MAXB * 3;
+    for (let t = 0; t < n && this.mass[i] > 0; t++) {
+      const m = this.mass[i];
+      let far = 0;
+      let farD = -1;
+      for (let q = 0; q < m; q++) {
+        const d = this.body[base + 3 * q] ** 2 + this.body[base + 3 * q + 1] ** 2 + this.body[base + 3 * q + 2] ** 2;
+        if (d > farD) {
+          farD = d;
+          far = q;
+        }
+      }
+      const last = m - 1;
+      this.body[base + 3 * far] = this.body[base + 3 * last];
+      this.body[base + 3 * far + 1] = this.body[base + 3 * last + 1];
+      this.body[base + 3 * far + 2] = this.body[base + 3 * last + 2];
+      this.mass[i] = last;
+    }
+    this.updateRadius(i);
+  }
+
+  /** Trilinear food value and gradient at a point: out = [value, gx, gy, gz]. */
   private foodField(x: number, y: number, z: number, out: Float32Array): void {
     const F = this.F;
     const fx = ((x + 1) / 2) * F - 0.5;
@@ -716,25 +877,18 @@ export class Society {
     const b0 = a00 + (a10 - a00) * ty;
     const b1 = a01 + (a11 - a01) * ty;
     out[0] = b0 + (b1 - b0) * tz;
-    // d/dx
-    const dx0 = (v100 - v000) + ((v110 - v010) - (v100 - v000)) * ty;
-    const dx1 = (v101 - v001) + ((v111 - v011) - (v101 - v001)) * ty;
+    const dx0 = v100 - v000 + (v110 - v010 - (v100 - v000)) * ty;
+    const dx1 = v101 - v001 + (v111 - v011 - (v101 - v001)) * ty;
     out[1] = dx0 + (dx1 - dx0) * tz;
-    // d/dy
-    const dy0 = a10 - a00;
-    const dy1 = a11 - a01;
-    out[2] = dy0 + (dy1 - dy0) * tz;
-    // d/dz
+    out[2] = a10 - a00 + (a11 - a01 - (a10 - a00)) * tz;
     out[3] = b1 - b0;
   }
 
   private moveAndMeet(): void {
-    const { M, alive, p, pos, vel, acc, wander, root, power, tribe, lord, aggr, energy, size, rng } = this;
+    const { M, alive, p, pos, vel, acc, wander, root, subMass, tribe, lord, energy, mass, rng } = this;
     const { gN, cellStart, cellItems, cellOf } = this;
     const sense2 = p.senseRadius * p.senseRadius;
     const sepR = p.sepRadius;
-    const sep2 = sepR * sepR;
-    const contact2 = p.contactRadius * p.contactRadius;
     const ff = new Float32Array(4);
     const sqrtSub = this.sqrtSub;
     for (let i = 0; i < M; i++) if (alive[i]) sqrtSub[i] = Math.sqrt(this.subSize[i]);
@@ -747,16 +901,14 @@ export class Society {
       const pz = pos[3 * i + 2];
       const ri = root[i];
       const ti = tribe[i];
-      const Pi = power[ri];
-      const aggressive = aggr[ri] > 0.5;
+      const Pi = subMass[ri];
+      const Li = lord[i];
+      const hunger = clamp(1 - energy[i] / (mass[i] * p.growAt), 0, 1);
       let sx = 0, sy = 0, sz = 0;
       let kx = 0, ky = 0, kz = 0, kn = 0;
       let fx = 0, fy = 0, fz = 0;
       let cx = 0, cy = 0, cz = 0;
       let hx = 0, hy = 0, hz = 0;
-      let foreign = 0;
-      let ownN = 0;
-      const Li = lord[i];
       const c = cellOf[i];
       const gx = c % gN;
       const gy = Math.floor(c / gN) % gN;
@@ -774,8 +926,9 @@ export class Society {
               const d2 = dx * dx + dy * dy + dz * dz;
               if (d2 > sense2) continue;
               const d = Math.sqrt(d2) + 1e-6;
-              if (d2 < sep2) {
-                const w = (1 - d / sepR) / d;
+              const reach = sepR + this.radius[i] + this.radius[j];
+              if (d < reach) {
+                const w = (1 - d / reach) / d;
                 sx -= dx * w;
                 sy -= dy * w;
                 sz -= dz * w;
@@ -787,32 +940,28 @@ export class Society {
                 kn++;
               }
               if (Li >= 0 && lord[j] === Li) {
-                const reach = p.sibSpread * (sqrtSub[i] + sqrtSub[j]);
-                if (d < reach) {
-                  const w = (1 - d / reach) / d;
+                const spread = p.sibSpread * (sqrtSub[i] + sqrtSub[j]);
+                if (d < spread) {
+                  const w = (1 - d / spread) / d;
                   hx -= dx * w;
                   hy -= dy * w;
                   hz -= dz * w;
                 }
               }
               const rj = root[j];
-              if (rj === ri) {
-                ownN++;
-                continue;
-              }
-              foreign++;
-              const Pj = power[rj];
+              if (rj === ri) continue;
+              const Pj = subMass[rj];
               const fall = (1 - d / p.senseRadius) / d;
               if (Pj > 1.5 * Pi) {
                 fx -= dx * fall;
                 fy -= dy * fall;
                 fz -= dz * fall;
-              } else if (aggressive && Pi > 1.5 * Pj) {
+              } else if (Pi > 1.5 * Pj && hunger > 0.3) {
                 cx += dx * fall;
                 cy += dy * fall;
                 cz += dz * fall;
               }
-              if (j > i && d2 < contact2 && nContacts < maxContacts) {
+              if (j > i && d < this.radius[i] + this.radius[j] + 0.008 && nContacts < maxContacts) {
                 this.contactA[nContacts] = i;
                 this.contactB[nContacts] = j;
                 nContacts++;
@@ -821,42 +970,39 @@ export class Society {
           }
         }
       }
-      this.threat[i] = foreign / (ownN + 1);
 
-      // wander: a slowly turning random direction
       let wx = wander[3 * i] + rng.normal() * 0.15;
       let wy = wander[3 * i + 1] + rng.normal() * 0.15;
       let wz = wander[3 * i + 2] + rng.normal() * 0.15;
       const wl = Math.hypot(wx, wy, wz) + 1e-9;
-      wx /= wl; wy /= wl; wz /= wl;
+      wx /= wl;
+      wy /= wl;
+      wz /= wl;
       wander[3 * i] = wx;
       wander[3 * i + 1] = wy;
       wander[3 * i + 2] = wz;
 
       this.foodField(px, py, pz, ff);
+      // Steer by the direction of the food gradient; its size matters only when it is faint.
       const gl = Math.hypot(ff[1], ff[2], ff[3]);
-      const gscale = gl > 1e-6 ? 1 / (gl + 0.5) : 0;
-      const s = size[i];
-      const hunger = clamp(1 - energy[i] / (s * p.reproduceAt), 0, 1);
+      const gscale = gl > 1e-6 ? 1 / (gl + 0.03) : 0;
 
       let ax = sx * p.wSep + hx * p.wSpread;
       let ay = sy * p.wSep + hy * p.wSpread;
       let az = sz * p.wSep + hz * p.wSpread;
-      const L = lord[i];
-      if (L >= 0) {
-        // Aim for a spot just below the lord.
-        const lx = pos[3 * L] - px;
-        const ly = pos[3 * L + 1] - p.rankDrop - py;
-        const lz = pos[3 * L + 2] - pz;
+      if (Li >= 0) {
+        const lx = pos[3 * Li] - px;
+        const ly = pos[3 * Li + 1] - py;
+        const lz = pos[3 * Li + 2] - pz;
         const ld = Math.hypot(lx, ly, lz) + 1e-6;
         const pull = clamp((ld - p.followDist) / p.followDist, -0.5, 3) / ld;
         ax += lx * pull * p.wFollow;
         ay += ly * pull * p.wFollow;
         az += lz * pull * p.wFollow;
-        const inv = 1 / (p.maxSpeed);
-        ax += (vel[3 * L] - vel[3 * i]) * inv * p.wAlign;
-        ay += (vel[3 * L + 1] - vel[3 * i + 1]) * inv * p.wAlign;
-        az += (vel[3 * L + 2] - vel[3 * i + 2]) * inv * p.wAlign;
+        const inv = 1 / p.maxSpeed;
+        ax += (vel[3 * Li] - vel[3 * i]) * inv * p.wAlign;
+        ay += (vel[3 * Li + 1] - vel[3 * i + 1]) * inv * p.wAlign;
+        az += (vel[3 * Li + 2] - vel[3 * i + 2]) * inv * p.wAlign;
         const fw = p.wFood * p.followerForage * (0.5 + hunger);
         ax += ff[1] * gscale * fw + fx * p.wFlee * 0.3 + wx * p.wWander * 0.4;
         ay += ff[2] * gscale * fw + fy * p.wFlee * 0.3 + wy * p.wWander * 0.4;
@@ -868,12 +1014,12 @@ export class Society {
         az += ff[3] * gscale * fw + fz * p.wFlee + cz * p.wChase + wz * p.wWander;
         if (kn > 0) {
           const kl = Math.hypot(kx, ky, kz) / kn + 1e-6;
-          ax += (kx / kn / kl) * p.wKin * Math.min(1, kl / p.followDist);
-          ay += (ky / kn / kl) * p.wKin * Math.min(1, kl / p.followDist);
-          az += (kz / kn / kl) * p.wKin * Math.min(1, kl / p.followDist);
+          const s = (p.wKin * Math.min(1, kl / 0.05)) / (kn * kl);
+          ax += kx * s;
+          ay += ky * s;
+          az += kz * s;
         }
       }
-      // soft walls
       const edge = 0.86;
       if (px > edge) ax -= (px - edge) * 8; else if (px < -edge) ax -= (px + edge) * 8;
       if (py > edge) ay -= (py - edge) * 8; else if (py < -edge) ay -= (py + edge) * 8;
@@ -886,14 +1032,18 @@ export class Society {
 
     for (let i = 0; i < M; i++) {
       if (!alive[i]) continue;
-      const vmax = p.maxSpeed / Math.sqrt(size[i]);
+      // A freshly condensed organism holds still while it pulls its cells together.
+      const settling = this.origin[i] === 1 && this.tick - this.born[i] < 40;
+      const vmax = settling ? 0 : this.vmax(i);
       let vx = vel[3 * i] * p.damping + acc[3 * i] * p.accel;
       let vy = vel[3 * i + 1] * p.damping + acc[3 * i + 1] * p.accel;
       let vz = vel[3 * i + 2] * p.damping + acc[3 * i + 2] * p.accel;
       const sp = Math.hypot(vx, vy, vz);
       if (sp > vmax) {
-        const k = vmax / sp;
-        vx *= k; vy *= k; vz *= k;
+        const k = vmax / (sp + 1e-12);
+        vx *= k;
+        vy *= k;
+        vz *= k;
       }
       vel[3 * i] = vx;
       vel[3 * i + 1] = vy;
@@ -904,9 +1054,9 @@ export class Society {
     }
   }
 
-  /** Sum of own power of polity `r` within battleRadius of a point (using this tick's roots). */
-  private localStrength(r: number, mx: number, my: number, mz: number): number {
-    const { gN, cellStart, cellItems, pos, root, own, p } = this;
+  /** Mass of polity `r` within battleRadius of a point. */
+  private localMass(r: number, mx: number, my: number, mz: number): number {
+    const { gN, cellStart, cellItems, pos, root, mass, p } = this;
     const b2 = p.battleRadius * p.battleRadius;
     const inv = gN / 2;
     const gx = clampInt(Math.floor((mx + 1) * inv), 0, gN - 1);
@@ -923,7 +1073,7 @@ export class Society {
             const dx = pos[3 * j] - mx;
             const dy = pos[3 * j + 1] - my;
             const dz = pos[3 * j + 2] - mz;
-            if (dx * dx + dy * dy + dz * dz <= b2) sum += own[j];
+            if (dx * dx + dy * dy + dz * dz <= b2) sum += mass[j];
           }
         }
       }
@@ -932,7 +1082,7 @@ export class Society {
   }
 
   private resolveContacts(): void {
-    const { p, rng, pos, tribe, aggr, energy } = this;
+    const { p, rng, pos, tribe, energy, mass } = this;
     for (let n = 0; n < this.nContacts; n++) {
       const i = this.contactA[n];
       const j = this.contactB[n];
@@ -941,68 +1091,78 @@ export class Society {
       const ri = this.rootOf(i);
       const rj = this.rootOf(j);
       if (ri === rj) continue;
-      const chance = p.fightChance * 0.5 * (aggr[ri] + aggr[rj]) * (tribe[i] === tribe[j] ? p.kinPeace : 1);
+      // Hungry organisms pick fights; kin mostly don't.
+      const hi = clamp(1 - energy[i] / (mass[i] * p.growAt), 0, 1);
+      const hj = clamp(1 - energy[j] / (mass[j] * p.growAt), 0, 1);
+      const chance = p.fightChance * (0.4 + Math.max(hi, hj)) * (tribe[i] === tribe[j] ? p.kinPeace : 1);
       if (!rng.chance(chance)) continue;
       const mx = (pos[3 * i] + pos[3 * j]) / 2;
       const my = (pos[3 * i + 1] + pos[3 * j + 1]) / 2;
       const mz = (pos[3 * i + 2] + pos[3 * j + 2]) / 2;
-      const li = this.localStrength(this.root[i], mx, my, mz) + this.own[i] * 0.01;
-      const lj = this.localStrength(this.root[j], mx, my, mz) + this.own[j] * 0.01;
+      const li = this.localMass(this.root[i], mx, my, mz) + mass[i] * 0.01;
+      const lj = this.localMass(this.root[j], mx, my, mz) + mass[j] * 0.01;
       const gi = li ** p.gamma;
       const gj = lj ** p.gamma;
       const iWins = rng.chance(gi / (gi + gj));
       const w = iWins ? i : j;
       const l = iWins ? j : i;
-      const lw = iWins ? li : lj;
-      const ll = iWins ? lj : li;
-      const dmg = p.damage * Math.max(0, energy[l]);
-      energy[l] -= dmg;
-      energy[w] += p.plunder * dmg;
       this.cooldown[i] = this.cooldown[j] = p.fightCooldown;
       this.stats.fights++;
-      if (lw >= p.decisive * ll) this.conquer(w, l);
-    }
-  }
-
-  private conquer(w: number, l: number): void {
-    const rl = this.rootOf(l);
-    const rw = this.rootOf(w);
-    const loserWasRuler = this.lord[l] < 0;
-    const taken = this.subSize[l];
-    const realmL = this.realmOf[rl];
-    const before = this.realmLabel(rl);
-    const winner = this.realmLabel(rw);
-    if (this.attach(l, w) < 0) return;
-    this.stats.conquests++;
-    if (loserWasRuler && realmL >= 0) {
-      const r = this.realms[realmL];
-      if (r.notable) {
-        const verb = ['conquers', 'overruns', 'subdues'][r.id % 3];
-        this.emit('conquest', `${winner} ${verb} ${r.name} and its ${taken}.`);
+      // The winner eats part of the loser's body.
+      const taken = Math.min(p.bite, mass[l]);
+      this.shrink(l, taken);
+      for (let q = 0; q < taken; q++) if (!this.grow(w)) break;
+      if (mass[l] < p.minMass) {
+        energy[l] = -1;
+        this.stats.killed++;
+      } else {
+        this.lostTo[l] = this.rootOf(w);
+        this.queueChoice(l);
       }
-      this.endRealm(realmL);
-    } else if (taken >= 6 && realmL >= 0 && this.realms[realmL].notable) {
-      this.emit('conquest', `${winner} takes ${taken} from ${before}.`);
     }
   }
 
-  private socialChecks(): void {
-    const { M, alive, uid, lord, p } = this;
+  // ---------------------------------------------------------------- allegiance
+
+  private choices(): void {
+    const { M, alive, uid, p } = this;
     const t = this.tick;
-    for (let i = 0; i < M; i++) {
-      if (!alive[i] || (uid[i] + t) % p.checkEvery !== 0) continue;
-      if (lord[i] < 0) this.consider(i);
-      else this.discontent(i);
+    if (this.ablate.allegiance) {
+      // Ablation: nobody ever chooses a lord, so no polity can form.
+      for (let q = 0; q < this.queueLen; q++) this.queued[this.queue[q]] = 0;
+      this.queueLen = 0;
+      return;
     }
+    for (let i = 0; i < M; i++) if (alive[i] && (uid[i] + t) % p.choiceEvery === 0) this.queueChoice(i);
+    for (let q = 0; q < this.queueLen; q++) {
+      const i = this.queue[q];
+      this.queued[i] = 0;
+      if (alive[i]) this.choose(i);
+    }
+    this.queueLen = 0;
   }
 
-  /** A ruler (or loner) looks for a much stronger kin polity to join. */
-  private consider(i: number): void {
-    const { p, pos, tribe, root, power, gN, cellStart, cellItems, cellOf } = this;
-    const need = p.deferRatio * power[i];
-    const sense2 = p.senseRadius * p.senseRadius;
-    let best = NONE;
-    let bestP = 0;
+  /** The one allegiance rule. See the header comment and the paper for the derivation. */
+  private choose(i: number): void {
+    const { p, pos, mass, tribe, lord, nChild, gN, cellStart, cellItems, cellOf } = this;
+    const R = p.senseRadius;
+    const R2 = R * R;
+    // Mark i's own subtree: those come along whatever i chooses.
+    const s = ++this.stampNow;
+    let ownNear = mass[i];
+    {
+      const stack = this.kids;
+      let top = 0;
+      stack[top++] = i;
+      while (top > 0) {
+        const k = stack[--top];
+        this.stamp[k] = s;
+        for (let c = this.firstChild[k]; c >= 0; c = this.nextSib[c]) stack[top++] = c;
+      }
+    }
+    const kinPeace = this.ablate.kin ? 1 : p.kinPeace;
+    let totalHost = 0;
+    let nTouched = 0;
     const c = cellOf[i];
     const gx = c % gN;
     const gy = Math.floor(c / gN) % gN;
@@ -1013,92 +1173,139 @@ export class Society {
           const cc = xx + gN * (yy + gN * zz);
           for (let k = cellStart[cc]; k < cellStart[cc + 1]; k++) {
             const j = cellItems[k];
-            if (j === i || !this.alive[j] || tribe[j] !== tribe[i]) continue;
-            const rj = root[j];
-            if (rj === i || power[rj] < need) continue;
+            if (j === i || !this.alive[j]) continue;
             const dx = pos[3 * j] - pos[3 * i];
             const dy = pos[3 * j + 1] - pos[3 * i + 1];
             const dz = pos[3 * j + 2] - pos[3 * i + 2];
-            if (dx * dx + dy * dy + dz * dz > sense2) continue;
-            if (power[j] > bestP) {
-              bestP = power[j];
-              best = j;
+            const d2 = dx * dx + dy * dy + dz * dz;
+            if (d2 > R2) continue;
+            if (this.stamp[j] === s) {
+              ownNear += mass[j];
+              continue;
+            }
+            const r = this.rootOf(j);
+            if (this.rootStamp[r] !== s) {
+              this.rootStamp[r] = s;
+              this.rootMass[r] = 0;
+              this.rootHost[r] = 0;
+              this.rootBest[r] = NONE;
+              this.rootCost[r] = Infinity;
+              this.touched[nTouched++] = r;
+            }
+            const w = (tribe[j] === tribe[i] ? kinPeace : 1) * p.fear;
+            this.rootMass[r] += mass[j];
+            this.rootHost[r] += w * mass[j];
+            totalHost += w * mass[j];
+            const cost = (this.ablate.attention ? 0 : p.attention * nChild[j]) + (p.distanceCost * Math.sqrt(d2)) / R;
+            if (cost < this.rootCost[r]) {
+              this.rootCost[r] = cost;
+              this.rootBest[r] = j;
             }
           }
         }
       }
     }
-    if (best < 0) return;
-    const chance = p.joinBase + p.joinThreat * Math.min(1, this.threat[i]);
-    if (!this.rng.chance(chance)) return;
+
+    const L = lord[i];
+    const curRoot = L >= 0 ? this.rootOf(i) : NONE;
+    const tribute = this.ablate.tribute ? 0 : p.tribute;
+    const kinShare = this.ablate.kin ? 0 : p.kinShare;
+    // Options: 0 = answer to no one; then one per neighbouring polity.
+    const opts: { lord: number; u: number; root: number }[] = [];
+    opts.push({ lord: NONE, root: NONE, u: Math.log(ownNear / (ownNear + totalHost)) + (L < 0 ? p.loyalty : 0) });
+    let sawCurrent = false;
+    for (let q = 0; q < nTouched; q++) {
+      const r = this.touched[q];
+      let j = this.rootBest[r];
+      let cost = this.rootCost[r];
+      if (r === curRoot && L >= 0) {
+        // Keeping the current lord is also on the table, with a small loyalty bonus.
+        const d = Math.hypot(pos[3 * L] - pos[3 * i], pos[3 * L + 1] - pos[3 * i + 1], pos[3 * L + 2] - pos[3 * i + 2]);
+        const cl = (this.ablate.attention ? 0 : p.attention * Math.max(0, nChild[L] - 1)) + (p.distanceCost * d) / R - p.loyalty;
+        if (cl <= cost) {
+          j = L;
+          cost = cl;
+        }
+        sawCurrent = true;
+      }
+      if (j < 0) continue;
+      const A = ownNear + this.rootMass[r];
+      const H = Math.max(0, totalHost - this.rootHost[r]);
+      const kin = tribe[j] === tribe[i];
+      const tax = Math.log(1 - tribute * (kin ? 1 - kinShare : 1));
+      const loss = p.controlLoss * (this.depth[j] + 1);
+      opts.push({ lord: j, root: r, u: Math.log(A / (A + H)) + tax - cost - loss });
+    }
+    if (L >= 0 && !sawCurrent) {
+      // The current lord's polity has no one nearby: staying buys no local protection.
+      const d = Math.hypot(pos[3 * L] - pos[3 * i], pos[3 * L + 1] - pos[3 * i + 1], pos[3 * L + 2] - pos[3 * i + 2]);
+      const kin = tribe[L] === tribe[i];
+      const tax = Math.log(1 - tribute * (kin ? 1 - kinShare : 1));
+      opts.push({ lord: L, root: curRoot, u: Math.log(ownNear / (ownNear + totalHost)) + tax - (p.distanceCost * d) / R + p.loyalty - p.controlLoss * (this.depth[L] + 1) });
+    }
+
+    // Softmax choice.
+    let pick = 0;
+    if (p.temperature > 0) {
+      let max = -Infinity;
+      for (const o of opts) max = Math.max(max, o.u);
+      let sum = 0;
+      const w = opts.map((o) => {
+        const e = Math.exp((o.u - max) / p.temperature);
+        sum += e;
+        return e;
+      });
+      let x = this.rng.next() * sum;
+      for (pick = 0; pick < w.length - 1; pick++) {
+        x -= w[pick];
+        if (x <= 0) break;
+      }
+    } else {
+      for (let q = 1; q < opts.length; q++) if (opts[q].u > opts[pick].u) pick = q;
+    }
+    const choice = opts[pick];
+    const lostTo = this.lostTo[i];
+    this.lostTo[i] = NONE;
+    if (choice.lord === L) return;
+
+    const wasRuler = L < 0;
     const realmI = this.realmOf[i];
-    const host = this.realmLabel(this.rootOf(best));
-    if (this.attach(i, best) < 0) return;
+    if (choice.lord === NONE) {
+      const n = this.subSize[i];
+      const from = curRoot >= 0 ? this.realmOf[curRoot] : NONE;
+      this.unlink(i);
+      this.stats.secessions++;
+      if (from >= 0 && this.realms[from].notable && n >= Math.max(8, 0.15 * this.realms[from].size)) {
+        const foreign = tribe[i] !== this.realms[from].tribe;
+        this.stats.rebellions++;
+        this.emit('rebellion', `${n} ${foreign ? `${TRIBE_NAMES[tribe[i]]} subjects` : 'followers'} break away from ${this.realms[from].name}.`);
+      }
+      return;
+    }
+    if (!this.attach(i, choice.lord)) return;
     this.stats.joins++;
-    if (realmI >= 0) {
+    const hostRoot = this.rootOf(choice.lord);
+    if (lostTo >= 0 && lostTo === hostRoot) this.stats.conquests++;
+    if (wasRuler && realmI >= 0) {
       const r = this.realms[realmI];
+      const host = this.realmLabel(hostRoot);
       if (r.notable) {
-        const verb = ['bends the knee to', 'joins its kin in', 'submits to'][r.id % 3];
-        this.emit('join', `${r.name} ${verb} ${host}.`);
+        const verb = lostTo === hostRoot ? 'falls to' : tribe[i] === tribe[hostRoot] ? 'joins its kin in' : 'submits to';
+        this.emit(lostTo === hostRoot ? 'conquest' : 'join', `${r.name} ${verb} ${host} (${this.subSize[i]}).`);
       }
       this.endRealm(realmI);
     }
   }
 
-  /** A follower weighs its strength against its ruler's. */
-  private discontent(i: number): void {
-    const { p, pos, lord, power, tribe } = this;
-    const L = lord[i];
-    const dx = pos[3 * L] - pos[3 * i];
-    const dy = pos[3 * L + 1] - pos[3 * i + 1];
-    const dz = pos[3 * L + 2] - pos[3 * i + 2];
-    if (dx * dx + dy * dy + dz * dz > p.breakDist * p.breakDist) {
-      this.unlink(i);
-      return;
-    }
-    const r = this.rootOf(i);
-    // The follower's branch against the rest of the realm.
-    const ratio = power[i] / Math.max(1e-6, power[r] - power[i]);
-    const s = 1 / (1 + Math.exp(-(ratio - p.rebelRatio) / 0.06));
-    const foreign = tribe[i] !== tribe[r];
-    const realm = this.realmOf[r];
-    // Foreigners nearby rally followers around the ruler; a realm that has outlived
-    // rulers before carries the weight of tradition.
-    const rulers = realm >= 0 ? this.realms[realm].rulers : 1;
-    const chance =
-      (p.rebelChance * s * (foreign ? p.foreignRebel : 1)) /
-      ((1 + p.rebelThreat * Math.min(2, this.threat[i])) * (1 + p.legitimacy * (rulers - 1)));
-    if (!this.rng.chance(chance)) return;
-    const realmName = realm >= 0 ? this.realms[realm].name : null;
-    const notable = realm >= 0 && this.realms[realm].notable;
-    if (L === r && ratio > p.coupRatio) {
-      this.unlink(i);
-      this.attach(r, i);
-      this.stats.coups++;
-      if (realm >= 0) {
-        this.realmOf[i] = realm;
-        this.realmOf[r] = NONE;
-        const rr = this.realms[realm];
-        rr.rulers++;
-        rr.sovereign = i;
-        if (notable) this.emit('coup', `Coup in ${realmName}: a ${TRIBE_NAMES[tribe[i]]} lord seizes the throne.`);
-      }
-      return;
-    }
-    const n = this.subSize[i];
-    this.unlink(i);
-    this.stats.rebellions++;
-    if (notable && n >= Math.max(8, 0.1 * this.subSize[r])) {
-      const who = foreign ? `${TRIBE_NAMES[tribe[i]]} subjects` : 'followers';
-      this.emit('rebellion', `Rebellion: ${n} ${who} break away from ${realmName}.`);
-    }
-  }
+  // ---------------------------------------------------------------- life and death
 
   private deaths(): void {
-    const { M, alive, energy, age, life } = this;
+    const { M, alive, energy, age, life, mass, p } = this;
     for (let i = 0; i < M; i++) {
       if (!alive[i]) continue;
-      if (energy[i] <= 0) {
+      if (mass[i] < p.minMass) {
+        this.kill(i); // eaten down in a fight, counted there
+      } else if (energy[i] < 0 && mass[i] <= p.minMass) {
         this.stats.starved++;
         this.kill(i);
       } else if (age[i] >= life[i]) {
@@ -1111,100 +1318,174 @@ export class Society {
     const kids = this.kids;
     let k = 0;
     for (let c = this.firstChild[d]; c >= 0; c = this.nextSib[c]) kids[k++] = c;
-    const L = this.lord[d];
-    for (let q = 0; q < k; q++) this.unlink(kids[q]);
-    this.unlink(d);
-    if (L >= 0) {
-      for (let q = 0; q < k; q++) this.attach(kids[q], L);
-    } else {
-      this.succession(d, k);
+    const wasRoot = this.lord[d] < 0;
+    const realmId = this.realmOf[d];
+    if (wasRoot && realmId >= 0) this.openSuccession(d, realmId);
+    for (let q = 0; q < k; q++) {
+      this.unlink(kids[q]);
+      this.queueChoice(kids[q]);
     }
+    this.unlink(d);
+    this.realmOf[d] = NONE;
     this.stats.deaths++;
     this.release(d);
   }
 
-  /** The ruler `d` died; its k former direct followers sit in this.kids, already detached. */
-  private succession(d: number, k: number): void {
-    const realmId = this.realmOf[d];
-    this.realmOf[d] = NONE;
-    const members = this.subSize[d] - 1;
-    if (k === 0) {
-      if (realmId >= 0) {
-        const r = this.realms[realmId];
-        if (r.notable) this.emit('fall', `${r.name} ends with its last ruler.`);
-        this.endRealm(realmId);
-      }
+  /** A ruler died: note who belonged to its realm, and check later whether they regrouped. */
+  private openSuccession(d: number, realmId: number): void {
+    const members: number[] = [];
+    const uids: number[] = [];
+    const stack: number[] = [];
+    for (let c = this.firstChild[d]; c >= 0; c = this.nextSib[c]) stack.push(c);
+    let biggest = 0;
+    for (let c = this.firstChild[d]; c >= 0; c = this.nextSib[c]) biggest = Math.max(biggest, this.subSize[c]);
+    let cx = 0;
+    let cy = 0;
+    let cz = 0;
+    while (stack.length) {
+      const k = stack.pop()!;
+      members.push(k);
+      uids.push(this.uid[k]);
+      cx += this.pos[3 * k];
+      cy += this.pos[3 * k + 1];
+      cz += this.pos[3 * k + 2];
+      for (let c = this.firstChild[k]; c >= 0; c = this.nextSib[c]) stack.push(c);
+    }
+    const n = members.length;
+    if (n === 0) {
+      const r = this.realms[realmId];
+      if (r.notable) this.emit('fall', `${r.name} ends with its last ruler.`);
+      this.endRealm(realmId);
       return;
     }
-    const kids = this.kids;
-    let heir = kids[0];
-    for (let q = 1; q < k; q++) if (this.power[kids[q]] > this.power[heir]) heir = kids[q];
-    this.energy[heir] += this.p.inherit * Math.max(0, this.energy[d]);
-    let kept = this.subSize[heir];
-    const rulers = realmId >= 0 ? this.realms[realmId].rulers : 1;
-    const needed = this.p.heirRatio / (1 + this.p.legitimacy * (rulers - 1));
-    for (let q = 0; q < k; q++) {
-      const c = kids[q];
-      if (c === heir) continue;
-      if (this.power[heir] >= needed * this.power[c]) {
-        if (this.attach(c, heir) >= 0) kept += this.subSize[c];
+    cx /= n;
+    cy /= n;
+    cz /= n;
+    let spread = 0;
+    for (const k of members) spread += Math.hypot(this.pos[3 * k] - cx, this.pos[3 * k + 1] - cy, this.pos[3 * k + 2] - cz);
+    this.pending.push({
+      realm: realmId,
+      due: this.tick + this.p.govWindow,
+      slots: members,
+      uids,
+      heirShare: biggest / n,
+      spread: spread / n / this.p.senseRadius,
+    });
+    for (const u of uids) this.pendingUid.add(u);
+    this.realms[realmId].sovereign = NONE;
+  }
+
+  private resolveSuccessions(): void {
+    if (!this.pending.length) return;
+    const still: PendingSuccession[] = [];
+    for (const ps of this.pending) {
+      if (ps.due > this.tick) {
+        still.push(ps);
+        continue;
+      }
+      const counts = new Map<number, number>();
+      for (let q = 0; q < ps.slots.length; q++) {
+        const k = ps.slots[q];
+        if (!this.alive[k] || this.uid[k] !== ps.uids[q]) continue;
+        const r = this.rootOf(k);
+        counts.set(r, (counts.get(r) ?? 0) + 1);
+      }
+      for (const u of ps.uids) this.pendingUid.delete(u);
+      let bestRoot = NONE;
+      let best = 0;
+      for (const [r, n] of counts) if (n > best) [best, bestRoot] = [n, r];
+      const members = ps.slots.length;
+      const keep = best / Math.max(1, members);
+      const realm = this.realms[ps.realm];
+      // Regrouping under a ruler that already heads another realm is absorption, not succession.
+      const survived = bestRoot >= 0 && keep >= this.p.govKeep && this.realmOf[bestRoot] < 0;
+      this.successions.push({ tick: this.tick, members, keep, heirShare: ps.heirShare, spread: ps.spread, survived });
+      if (survived) {
+        this.realmOf[bestRoot] = ps.realm;
+        realm.sovereign = bestRoot;
+        realm.rulers++;
+        if (members >= this.p.govSize) {
+          this.stats.successions++;
+          const detail = `${realm.name} outlives its ruler: ${Math.round(keep * 100)}% of ${members} regroup under a new ruler.`;
+          if (this.levels[L_GOVERNMENT] < 0 && this.levels[L_HIERARCHY] >= 0) this.reach(L_GOVERNMENT, `Government: ${detail}`);
+          else this.emit('succession', detail);
+        }
+      } else {
+        if (members >= this.p.govSize) {
+          this.stats.fragmentations++;
+          this.emit('fragment', `${realm.name} breaks apart after its ruler dies (the largest piece keeps ${Math.round(keep * 100)}%).`);
+        }
+        this.endRealm(ps.realm);
       }
     }
-    if (realmId < 0) return;
-    const r = this.realms[realmId];
-    const keep = kept / Math.max(1, members);
-    if (keep >= this.p.govKeep) {
-      this.realmOf[heir] = realmId;
-      r.rulers++;
-      r.sovereign = heir;
-      if (members >= this.p.govSize) {
-        this.stats.successions++;
-        const pct = Math.round(keep * 100);
-        const detail = `${r.name} outlives its ruler, and the heir keeps ${pct}% of ${members}.`;
-        if (this.levels[L_GOVERNMENT] < 0 && this.levels[L_HIERARCHY] >= 0) this.reach(L_GOVERNMENT, `Government: ${detail}`);
-        else this.emit('succession', detail);
-      }
-    } else {
-      if (members >= this.p.govSize) {
-        this.stats.fragmentations++;
-        const pct = Math.round(keep * 100);
-        this.emit('fragment', `${r.name} breaks apart when its ruler dies (the heir keeps ${pct}%).`);
-      }
-      this.endRealm(realmId);
-    }
+    this.pending = still;
   }
 
   private births(): void {
-    const { M, alive, energy, size, p, pos, vel, rng } = this;
+    const { M, alive, energy, mass, p, pos, vel } = this;
     const firstNew = this.nextUid;
     const cap = Math.floor(p.maxN * 0.995);
     for (let i = 0; i < M; i++) {
       if (!alive[i] || this.uid[i] >= firstNew) continue;
-      if (energy[i] <= p.reproduceAt * size[i] || this.count >= cap) continue;
+      const m = mass[i];
+      if (m < p.splitMass || energy[i] < p.splitAt * m || this.count >= cap) continue;
       const j = this.alloc();
       if (j < 0) return;
-      const e = energy[i] * 0.5;
-      energy[i] -= e;
-      energy[j] = e;
-      const v = randomUnit(rng);
-      pos[3 * j] = clamp(pos[3 * i] + v[0] * 0.02, -0.98, 0.98);
-      pos[3 * j + 1] = clamp(pos[3 * i + 1] + v[1] * 0.02, -0.98, 0.98);
-      pos[3 * j + 2] = clamp(pos[3 * i + 2] + v[2] * 0.02, -0.98, 0.98);
+      // Fission: cut the body across its longest axis.
+      const base = i * MAXB * 3;
+      const ext = [0, 1, 2].map((a) => {
+        let lo = 99;
+        let hi = -99;
+        for (let q = 0; q < m; q++) {
+          lo = Math.min(lo, this.body[base + 3 * q + a]);
+          hi = Math.max(hi, this.body[base + 3 * q + a]);
+        }
+        return hi - lo;
+      });
+      const axis = ext.indexOf(Math.max(...ext));
+      const idx = Array.from({ length: m }, (_, q) => q).sort((a, b) => this.body[base + 3 * a + axis] - this.body[base + 3 * b + axis]);
+      const keepN = Math.ceil(m / 2);
+      const keep = idx.slice(0, keepN).map((q) => [this.body[base + 3 * q], this.body[base + 3 * q + 1], this.body[base + 3 * q + 2]]);
+      const give = idx.slice(keepN).map((q) => [this.body[base + 3 * q], this.body[base + 3 * q + 1], this.body[base + 3 * q + 2]]);
+      const recenter = (cells: number[][], slot: number) => {
+        const c = [0, 1, 2].map((a) => Math.round(cells.reduce((s, v) => s + v[a], 0) / cells.length));
+        const b = slot * MAXB * 3;
+        cells.forEach((v, q) => {
+          this.body[b + 3 * q] = v[0] - c[0];
+          this.body[b + 3 * q + 1] = v[1] - c[1];
+          this.body[b + 3 * q + 2] = v[2] - c[2];
+        });
+        this.mass[slot] = cells.length;
+        this.updateRadius(slot);
+        return c;
+      };
+      const ci = recenter(keep, i);
+      const cj = recenter(give, j);
+      const unit = this.cell * p.bodyScale;
+      const ox = pos[3 * i];
+      const oy = pos[3 * i + 1];
+      const oz = pos[3 * i + 2];
+      pos[3 * i] = clamp(ox + ci[0] * unit, -0.98, 0.98);
+      pos[3 * i + 1] = clamp(oy + ci[1] * unit, -0.98, 0.98);
+      pos[3 * i + 2] = clamp(oz + ci[2] * unit, -0.98, 0.98);
+      pos[3 * j] = clamp(ox + cj[0] * unit, -0.98, 0.98);
+      pos[3 * j + 1] = clamp(oy + cj[1] * unit, -0.98, 0.98);
+      pos[3 * j + 2] = clamp(oz + cj[2] * unit, -0.98, 0.98);
       this.prev[3 * j] = pos[3 * j];
       this.prev[3 * j + 1] = pos[3 * j + 1];
       this.prev[3 * j + 2] = pos[3 * j + 2];
       vel[3 * j] = vel[3 * i];
       vel[3 * j + 1] = vel[3 * i + 1];
       vel[3 * j + 2] = vel[3 * i + 2];
-      size[j] = clamp(size[i] * Math.exp(rng.normal() * p.sizeMutation), 0.5, 2.2);
-      this.aggr[j] = clamp(this.aggr[i] + rng.normal() * p.aggrMutation, 0, 1);
+      const e = energy[i] * (give.length / m);
+      energy[i] -= e;
+      energy[j] = e;
       this.tribe[j] = this.tribe[i];
-      // Values for the rest of this tick, until computeTree runs again.
-      this.root[j] = this.root[i];
-      this.own[j] = size[j] * 0.8;
-      this.power[j] = this.own[j];
-      this.subSize[j] = 1;
-      this.attach(j, i);
+      this.origin[j] = 2;
+      this.age[j] = 0;
+      this.root[j] = j;
+      this.subMass[j] = this.mass[j];
+      this.queueChoice(j);
       this.stats.births++;
     }
   }
@@ -1217,23 +1498,39 @@ export class Society {
 
   // ---------------------------------------------------------------- measurement
 
-  /** Every 30 ticks: found and update realms, check the ladder, record a sample. */
+  /**
+   * Syntropy of the social level: 1 minus the Shannon entropy of the partition of organisms into
+   * polities, divided by its maximum (log N, everyone alone). 0 = everyone alone, 1 = one polity.
+   */
+  syntropy(): number {
+    const N = this.count;
+    if (N <= 1) return 0;
+    let H = 0;
+    for (let h = 0; h < this.rootCount; h++) {
+      const q = this.subSize[this.order[h]] / N;
+      H -= q * Math.log(q);
+    }
+    return 1 - H / Math.log(N);
+  }
+
   private survey(): void {
-    const { p, order, subSize, subDepth, tribeMask, realmOf, tribe } = this;
+    const { p, order, subSize, subDepth, tribeMask, realmOf, tribe, uid } = this;
     let realms = 0;
     let major = 0;
     let organized = 0;
     let largest = 0;
     let deepest = 0;
     let tribesLed = 0;
+    let massSum = 0;
     let hierarchy: { r: number; tribes: number; depth: number } | null = null;
+    for (let i = 0; i < this.M; i++) if (this.alive[i]) massSum += this.mass[i];
     for (let h = 0; h < this.rootCount; h++) {
       const r = order[h];
       const size = subSize[r];
-      if (size >= p.tribeMin) tribesLed++;
+      if (size >= p.tribeMin && this.kinCount[r] >= p.tribeKin * size) tribesLed++;
       if (size > largest) largest = size;
       let rid = realmOf[r];
-      if (rid < 0 && size >= p.realmMin) {
+      if (rid < 0 && size >= p.realmMin && !this.pendingUid.has(uid[r])) {
         rid = this.realms.length;
         this.realms.push({
           id: rid, name: realmName(this.nameRng, this.names), tribe: tribe[r], founded: this.tick, ended: -1,
@@ -1263,7 +1560,7 @@ export class Society {
         const verb = ['rises', 'forms', 'takes shape'][realm.id % 3];
         this.emit('realm', `${realm.name} ${verb}: ${size} follow a ${TRIBE_NAMES[tribe[r]]} chief.`);
       }
-      if (size >= p.hierSize && subDepth[r] >= p.hierDepth && realm.tribes >= p.hierTribes) {
+      if (size >= p.hierSize && subDepth[r] >= p.hierDepth && realm.tribes >= p.hierTribes && size - this.kinCount[r] >= p.hierForeign * size) {
         if (!hierarchy || size > subSize[hierarchy.r]) hierarchy = { r, tribes: realm.tribes, depth: subDepth[r] };
       }
     }
@@ -1275,7 +1572,10 @@ export class Society {
     if (deepest > this.stats.maxDepth) this.stats.maxDepth = deepest;
     if (largest > this.stats.maxRealm) this.stats.maxRealm = largest;
     if (this.count > this.stats.popPeak) this.stats.popPeak = this.count;
-    this.history.push({ tick: this.tick, pop: this.count, realms, major, organized, largest, depth: deepest });
+    this.history.push({
+      tick: this.tick, pop: this.count, realms, major, organized, largest, depth: deepest,
+      syntropy: this.syntropy(), meanMass: this.count ? massSum / this.count : 0,
+    });
   }
 
   private reach(level: number, text: string): void {
@@ -1297,15 +1597,14 @@ export class Society {
     return `a ${TRIBE_NAMES[this.tribe[rootSlot]]} band`;
   }
 
-  private emit(kind: EventKind, text: string, level?: number): void {
+  emit(kind: EventKind, text: string, level?: number): void {
     this.events.push({ tick: this.tick, kind, text, level });
     this.emitted++;
     if (this.events.length > 600) this.events.splice(0, 100);
   }
 
-  /** Realms that currently stand, largest first. */
   standingRealms(): Realm[] {
-    return this.realms.filter((r) => r.ended < 0).sort((a, b) => b.size - a.size);
+    return this.realms.filter((r) => r.ended < 0 && r.sovereign >= 0).sort((a, b) => b.size - a.size);
   }
 }
 

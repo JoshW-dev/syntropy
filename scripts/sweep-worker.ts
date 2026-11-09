@@ -7,8 +7,8 @@ import { summarize } from '../src/sim/score.ts';
 type Job = { id: number; set: number; seed: string; ticks: number; overrides: object };
 
 parentPort!.on('message', (job: Job) => {
-  const { society } = grow(job.seed, withOverrides(job.overrides));
-  while (society.tick < job.ticks && society.count > 0) society.step();
-  parentPort!.postMessage({ id: job.id, set: job.set, summary: summarize(society, job.seed) });
+  const world = grow(job.seed, withOverrides(job.overrides));
+  while (world.tick < job.ticks && (world.society.count > 0 || world.latticeActive)) world.step();
+  parentPort!.postMessage({ id: job.id, set: job.set, summary: summarize(world.society, job.seed) });
 });
 parentPort!.postMessage({ ready: true });

@@ -14,38 +14,36 @@ type Dim = { key: keyof SocietyParams; lo: number; hi: number; log?: boolean; in
 
 // The knobs the search may turn. Everything else stays at DEFAULT_SOCIETY.
 const SPACE: Dim[] = [
-  { key: 'fightChance', lo: 0.02, hi: 0.25, log: true },
-  { key: 'kinPeace', lo: 0.05, hi: 0.6 },
-  { key: 'decisive', lo: 1.15, hi: 2.5 },
-  { key: 'gamma', lo: 1, hi: 3 },
-  { key: 'damage', lo: 0.1, hi: 0.5 },
-  { key: 'deferRatio', lo: 1.4, hi: 4 },
-  { key: 'joinBase', lo: 0.01, hi: 0.25, log: true },
-  { key: 'joinThreat', lo: 0, hi: 1 },
-  { key: 'span', lo: 3, hi: 6, int: true },
-  { key: 'tribute', lo: 0.08, hi: 0.4 },
-  { key: 'rebelRatio', lo: 0.5, hi: 1.6 },
-  { key: 'rebelChance', lo: 0.003, hi: 0.08, log: true },
-  { key: 'foreignRebel', lo: 1, hi: 4 },
-  { key: 'coupRatio', lo: 1, hi: 3 },
-  { key: 'rebelThreat', lo: 0, hi: 5 },
-  { key: 'legitimacy', lo: 0, hi: 1.5 },
-  { key: 'heirRatio', lo: 1, hi: 2.5 },
-  { key: 'inherit', lo: 0.2, hi: 0.9 },
-  { key: 'lifespan', lo: 1800, hi: 3600, int: true },
-  { key: 'wChase', lo: 0.1, hi: 1.4 },
-  { key: 'wFlee', lo: 0.1, hi: 1.4 },
-  { key: 'foodZones', lo: 3, hi: 6, int: true },
-  { key: 'zoneSigma', lo: 0.22, hi: 0.45 },
-  { key: 'foodBase', lo: 0.02, hi: 0.16 },
-  { key: 'regrow', lo: 0.002, hi: 0.01, log: true },
-  { key: 'harvestRate', lo: 0.008, hi: 0.02 },
-  { key: 'metabolism', lo: 0.001, hi: 0.0025 },
-  { key: 'wFood', lo: 0.3, hi: 1.4 },
-  { key: 'followerForage', lo: 0.2, hi: 1 },
-  { key: 'rankDrop', lo: 0.03, hi: 0.06 },
+  // food and bodies
+  { key: 'regrow', lo: 0.006, hi: 0.03, log: true },
+  { key: 'harvestRate', lo: 0.006, hi: 0.016 },
+  { key: 'foodBase', lo: 0.05, hi: 0.25 },
+  { key: 'metabolism', lo: 0.0003, hi: 0.001 },
+  { key: 'zoneSigma', lo: 0.2, hi: 0.4 },
+  { key: 'splitMass', lo: 10, hi: 18, int: true },
+  { key: 'growAt', lo: 0.6, hi: 1.1 },
+  { key: 'lifespan', lo: 2000, hi: 5000, int: true },
+  { key: 'followerForage', lo: 0.4, hi: 1.2 },
+  // movement
+  { key: 'wChase', lo: 0.1, hi: 1.2 },
+  { key: 'wFlee', lo: 0.1, hi: 1.2 },
+  { key: 'wKin', lo: 0.1, hi: 1 },
+  { key: 'sepRadius', lo: 0.03, hi: 0.07 },
   { key: 'sibSpread', lo: 0.012, hi: 0.03 },
-  { key: 'breakDist', lo: 0.3, hi: 0.7 },
+  // conflict
+  { key: 'fightChance', lo: 0.01, hi: 0.12, log: true },
+  { key: 'kinPeace', lo: 0.1, hi: 0.7 },
+  { key: 'gamma', lo: 1, hi: 3 },
+  { key: 'bite', lo: 1, hi: 4, int: true },
+  // allegiance
+  { key: 'tribute', lo: 0.1, hi: 0.5 },
+  { key: 'kinShare', lo: 0.3, hi: 1 },
+  { key: 'attention', lo: 0, hi: 0.15 },
+  { key: 'distanceCost', lo: 0, hi: 0.4 },
+  { key: 'loyalty', lo: 0.05, hi: 0.5 },
+  { key: 'controlLoss', lo: 0.02, hi: 0.2 },
+  { key: 'choiceEvery', lo: 30, hi: 120, int: true },
+  { key: 'temperature', lo: 0.01, hi: 0.15, log: true },
 ];
 
 type Params = Partial<SocietyParams>;
@@ -56,6 +54,7 @@ type SetResult = {
   tribes: number;
   hier: number;
   gov: number;
+  tTribes: number;
   tHier: number;
   tGov: number;
   realms: number;
@@ -180,6 +179,7 @@ async function evaluate(sets: Params[], seeds: string[], runTicks: number): Prom
       tribes: mean((r) => (r.tTribes >= 0 ? 1 : 0)),
       hier: mean((r) => (r.tHier >= 0 ? 1 : 0)),
       gov: mean((r) => (r.tGov >= 0 ? 1 : 0)),
+      tTribes: median(runs.filter((r) => r.tTribes >= 0).map((r) => r.tTribes)),
       tHier: median(runs.filter((r) => r.tHier >= 0).map((r) => r.tHier)),
       tGov: median(runs.filter((r) => r.tGov >= 0).map((r) => r.tGov)),
       realms: mean((r) => r.realms),
@@ -194,10 +194,10 @@ async function evaluate(sets: Params[], seeds: string[], runTicks: number): Prom
 }
 
 function table(rows: SetResult[], n = 10) {
-  console.log('  set  score  tribes hier  gov   tHier  tGov  major  org share churn dyn  maxRealm');
+  console.log('  set  score  tribes hier  gov  tTrib  tHier  tGov  major  org share churn dyn  maxRealm');
   for (const r of rows.slice(0, n)) {
     console.log(
-      `${String(r.set).padStart(5)} ${r.score.toFixed(2).padStart(6)}  ${pct(r.tribes)} ${pct(r.hier)} ${pct(r.gov)} ${String(r.tHier).padStart(6)} ${String(r.tGov).padStart(6)} ${r.realms.toFixed(1).padStart(6)} ${r.organized.toFixed(2).padStart(4)} ${r.share.toFixed(2).padStart(5)} ${r.churn.toFixed(1).padStart(5)} ${r.dynasties.toFixed(1).padStart(4)} ${r.maxRealm.toFixed(0).padStart(8)}`,
+      `${String(r.set).padStart(5)} ${r.score.toFixed(2).padStart(6)}  ${pct(r.tribes)} ${pct(r.hier)} ${pct(r.gov)} ${String(r.tTribes).padStart(6)} ${String(r.tHier).padStart(6)} ${String(r.tGov).padStart(6)} ${r.realms.toFixed(1).padStart(6)} ${r.organized.toFixed(2).padStart(4)} ${r.share.toFixed(2).padStart(5)} ${r.churn.toFixed(1).padStart(5)} ${r.dynasties.toFixed(1).padStart(4)} ${r.maxRealm.toFixed(0).padStart(8)}`,
     );
   }
 }

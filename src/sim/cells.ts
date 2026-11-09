@@ -51,7 +51,7 @@ export const DEFAULT_CELLS: CellsParams = {
   minForm: 4,
   holdGens: 20,
   targetForms: 56,
-  maxGens: 140,
+  maxGens: 400,
 };
 
 export interface Form {
@@ -396,6 +396,34 @@ export class CellsWorld {
     let holding = 0;
     for (const f of found) if (f.age >= this.p.holdGens) holding++;
     this.holding = holding;
+  }
+
+  /**
+   * Lift the given forms off the lattice: their cells stop following the lattice rule and are
+   * returned as lattice coordinates [x, y, z, x, y, z, ...] per form label. No death animation
+   * plays, because the cells live on as an organism's body.
+   */
+  extract(labels: Set<number>): Map<number, number[]> {
+    const out = new Map<number, number[]>();
+    if (labels.size === 0) return out;
+    const { G, N, alive, prevAlive, formOf } = this;
+    const G2 = G * G;
+    let removed = 0;
+    for (let i = 0; i < N; i++) {
+      const l = formOf[i];
+      if (l < 0 || !labels.has(l) || !alive[i]) continue;
+      let list = out.get(l);
+      if (!list) out.set(l, (list = []));
+      list.push(i % G, Math.floor(i / G) % G, Math.floor(i / G2));
+      alive[i] = 0;
+      prevAlive[i] = 0;
+      formOf[i] = -1;
+      removed++;
+    }
+    this.population -= removed;
+    // Keep indices stable (formOf points into forms); an emptied form can't match the next scan.
+    for (const l of labels) if (this.forms[l]) this.forms[l].cells = 0;
+    return out;
   }
 
   get complete(): boolean {
