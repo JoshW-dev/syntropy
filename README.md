@@ -69,7 +69,7 @@ These regenerate the paper's data (about five minutes on 16 threads), draw its f
 
 ## How consistent it is
 
-All 48 seeded worlds in the paper's baseline climbed the whole ladder within 150 simulated years. The median world formed tribes in year 9.5, a hierarchy in year 22.8 and a government in year 37.8, which at the default speed comes about a minute after the first organism. The ablations switch off one ingredient at a time on 32 worlds each. Without fear of unallied neighbours nothing forms at all, while worlds with no fights, no tribute or no kin preference still reached government every time. The phase diagram in the paper maps where in fear and tribute each level stops appearing.
+All 48 seeded worlds in the paper's baseline climbed the whole ladder within 150 simulated years. The median world formed tribes in year 9.4, a hierarchy in year 22.8 and a government in year 37.8, which at the default speed comes about a minute after the first organism. The ablations switch off one ingredient at a time on 32 worlds each. Without fear of unallied neighbours nothing forms at all, while worlds with no fights, no tribute or no kin preference still reached government every time. The phase diagram in the paper maps where in fear and tribute each level stops appearing.
 
 ## Running it
 
