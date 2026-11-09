@@ -1,0 +1,9 @@
+node_modules
+dist
+.vercel
+.DS_Store
+*.log
+tuning/runs/
+*-viewport.jpeg
+*-fullpage.jpeg
+!tuning/*.log
