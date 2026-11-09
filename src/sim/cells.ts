@@ -2,7 +2,9 @@
 // Every live cell carries a lineage (its founding spore). A newborn cell takes the most
 // common lineage among its live neighbours, so colonies keep the colour they started with.
 // Connected groups of live cells that keep their place and size become "forms", and the
-// forms that hold together are what the Society level turns into organisms.
+// forms that hold together are what the Society level turns into organisms. Once the lattice stands
+// still or repeats a short cycle for long enough, nothing left on it can ever come loose (see
+// `settled`), so the world ends it and the last cells dissolve.
 
 import type { Rng } from './rng.ts';
 
@@ -68,6 +70,23 @@ export interface Form {
 
 const TRACK_EVERY = 5;
 
+/** Longest cycle, in generations, the lattice is checked for. Leftovers seen in testing cycled every 1, 2 or 4. */
+export const PERIOD_MAX = 12;
+
+const gcd = (a: number, b: number): number => (b ? gcd(b, a % b) : a);
+
+/**
+ * Generations a lattice has to keep repeating itself with the given period before nothing on it can
+ * ever come loose. Once the state repeats, the form scan sees the same sequence every
+ * lcm(period, TRACK_EVERY) generations, so a form that can hold at all holds within one such cycle
+ * plus holdGens, give or take a scan interval. Typical leftovers are clumps below minForm, which
+ * S1-5/B7-8 keeps alive forever (each cell has one or two live neighbours, and no empty site next
+ * to them reaches seven), plus a few small oscillators that never hold.
+ */
+export function repeatLimit(p: CellsParams, period: number): number {
+  return p.holdGens + 2 * TRACK_EVERY + (period / gcd(period, TRACK_EVERY)) * TRACK_EVERY;
+}
+
 export class CellsWorld {
   readonly p: CellsParams;
   readonly G: number;
@@ -83,6 +102,16 @@ export class CellsWorld {
   deaths = 0;
   forms: Form[] = [];
   holding = 0;
+  /** Shortest cycle, in generations, that the lattice is repeating right now (1 = still, 0 = none). */
+  period = 0;
+  /** Generations in a row that the lattice has repeated with `period`. */
+  repeatGens = 0;
+  /** Goes up whenever any cell changes, so a renderer knows when to rebuild. */
+  version = 0;
+  // Two hashes and the population of each of the last PERIOD_MAX generations, by generation % PERIOD_MAX.
+  private recentA = new Int32Array(PERIOD_MAX);
+  private recentB = new Int32Array(PERIOD_MAX);
+  private recentPop = new Int32Array(PERIOD_MAX).fill(-1);
   /** Component label per cell from the latest form scan (-1 = none or too small). */
   formOf: Int32Array;
   sporeCenters: { x: number; y: number; z: number; lineage: number }[] = [];
@@ -236,6 +265,9 @@ export class CellsWorld {
     let births = 0;
     let deaths = 0;
     let pop = 0;
+    // Two independent hashes of which cells are alive, to spot a lattice that repeats itself.
+    let ha = 0x811c9dc5;
+    let hb = 0x9e3779b9;
     for (let i = 0; i < N; i++) {
       const self = s[i];
       const n = a[i] - self;
@@ -244,6 +276,8 @@ export class CellsWorld {
           next[i] = 1;
           nextLin[i] = lin[i];
           pop++;
+          ha = Math.imul(ha ^ i, 0x01000193);
+          hb = Math.imul(hb ^ (i + 0x7f4a7c15), 0x5bd1e995) ^ (hb >>> 13);
         } else {
           next[i] = 0;
           deaths++;
@@ -253,10 +287,13 @@ export class CellsWorld {
         nextLin[i] = this.majorityLineage(i);
         births++;
         pop++;
+        ha = Math.imul(ha ^ i, 0x01000193);
+        hb = Math.imul(hb ^ (i + 0x7f4a7c15), 0x5bd1e995) ^ (hb >>> 13);
       } else {
         next[i] = 0;
       }
     }
+    this.notePeriod(this.generation + 1, pop, ha, hb);
     this.next = s;
     this.alive = next;
     this.nextLineage = lin;
@@ -264,6 +301,7 @@ export class CellsWorld {
     this.births = births;
     this.deaths = deaths;
     this.population = pop;
+    this.version++;
     this.generation++;
     if (this.generation % TRACK_EVERY === 0) this.scanForms();
   }
@@ -421,9 +459,64 @@ export class CellsWorld {
       removed++;
     }
     this.population -= removed;
+    if (removed) {
+      this.version++;
+      // The lattice no longer matches any state it remembers, so its cycle has to be found again.
+      this.recentPop.fill(-1);
+      this.period = 0;
+      this.repeatGens = 0;
+    }
     // Keep indices stable (formOf points into forms); an emptied form can't match the next scan.
     for (const l of labels) if (this.forms[l]) this.forms[l].cells = 0;
     return out;
+  }
+
+  /** Record generation g's hashes and check whether it repeats one of the last PERIOD_MAX generations. */
+  private notePeriod(g: number, pop: number, ha: number, hb: number): void {
+    let period = 0;
+    for (let k = 1; k <= PERIOD_MAX && k <= g; k++) {
+      const j = (g - k) % PERIOD_MAX;
+      if (this.recentPop[j] === pop && this.recentA[j] === ha && this.recentB[j] === hb) {
+        period = k;
+        break;
+      }
+    }
+    const slot = g % PERIOD_MAX;
+    this.recentPop[slot] = pop;
+    this.recentA[slot] = ha;
+    this.recentB[slot] = hb;
+    if (period && period === this.period) this.repeatGens++;
+    else {
+      this.period = period;
+      this.repeatGens = period ? 1 : 0;
+    }
+  }
+
+  /**
+   * True once the lattice has stood still or repeated one short cycle for repeatLimit generations.
+   * By then no remaining cell can ever come loose.
+   */
+  get settled(): boolean {
+    return this.period > 0 && this.repeatGens >= repeatLimit(this.p, this.period);
+  }
+
+  /**
+   * Remove every remaining cell. The state before is kept in prevAlive/prevLineage, so a renderer
+   * draws them as dying. Returns how many cells dissolved.
+   */
+  dissolve(): number {
+    const n = this.population;
+    this.prevAlive.set(this.alive);
+    this.prevLineage.set(this.lineage);
+    this.alive.fill(0);
+    this.formOf.fill(-1);
+    this.forms = [];
+    this.holding = 0;
+    this.births = 0;
+    this.deaths = n;
+    this.population = 0;
+    this.version++;
+    return n;
   }
 
   get complete(): boolean {

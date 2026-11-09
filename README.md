@@ -4,7 +4,7 @@
 
 ### [**Watch it run →**](https://syntropy-sim.vercel.app) &nbsp; [**Read the paper →**](https://syntropy-sim.vercel.app/paper/) &nbsp; [PDF](https://syntropy-sim.vercel.app/paper/syntropy.pdf)
 
-Syntropy is a 3D take on Conway's Game of Life that keeps climbing. Coloured cells on a lattice settle into forms. Each form that holds its shape for twenty generations comes loose as an organism made of exactly those cells, in exactly that place, while the rest of the lattice keeps running. Organisms eat, grow a cell when they have surplus, burn one when they starve, split in two, fight and age. Then they start following each other, and the world climbs through tribes and hierarchies to realms that regroup under a new ruler when the old one dies.
+Syntropy is a 3D take on Conway's Game of Life that keeps climbing. Coloured cells on a lattice settle into forms. Each form that holds its shape for twenty generations comes loose as an organism made of exactly those cells, in exactly that place, while the rest of the lattice keeps running until it settles and its last cells dissolve. Organisms eat, grow a cell when they have surplus, burn one when they starve, split in two, fight and age. Then they start following each other, and the world climbs through tribes and hierarchies to realms that regroup under a new ruler when the old one dies.
 
 None of that is scripted. There's no rule for tribes, ranks, conquest, rebellion, heirs or government. Every organism makes one choice, over and over: follow whoever keeps it safest, net of the tribute it would pay, or follow no one. Conquest, secession and succession all fall out of that one choice, and the ladder on the left of the screen only reports what a measurement noticed.
 

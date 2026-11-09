@@ -14,6 +14,8 @@ import { Hud, type Step } from './ui/hud.ts';
 
 const TICKS_PER_SECOND = 60;
 export const TICKS_PER_YEAR = 100;
+/** Ticks over which the lattice's last cells shrink away when it ends (2 s at 1x). */
+const DISSOLVE_TICKS = 120;
 
 function steps(p: WorldParams): Step[] {
   const c = p.cells;
@@ -43,7 +45,7 @@ export class App {
   private last = 0;
   private seenEvents = 0;
   private realmsSeen = 0;
-  private lastGen = -1;
+  private lastCells = -1;
   private pointer: { x: number; y: number } | null = null;
   private tmp = new THREE.Vector3();
   private overrides: Overrides;
@@ -109,7 +111,7 @@ export class App {
     this.acc = 0;
     this.seenEvents = 0;
     this.realmsSeen = 0;
-    this.lastGen = this.world.cells.generation;
+    this.lastCells = this.world.cells.version;
     this.hud.clearChronicle();
     this.hud.setSeed(seed);
     this.hud.setLabels([]);
@@ -191,12 +193,17 @@ export class App {
     const alpha = Math.min(1, this.acc);
 
     if (this.voxels) {
-      if (w.cells.generation !== this.lastGen) {
-        this.lastGen = w.cells.generation;
+      if (w.cells.version !== this.lastCells) {
+        this.lastCells = w.cells.version;
         this.voxels.sync(w.cells);
       }
-      const t = Math.min(1, (w.tick - w.lastGenTick + alpha) / w.params.ticksPerGen);
-      this.voxels.animate(w.latticeActive ? t : 1);
+      // Between generations, cells grow in and shrink away; once the lattice ends, its last cells
+      // shrink away more slowly and the layer empties.
+      const t = w.latticeActive
+        ? Math.min(1, (w.tick - w.lastGenTick + alpha) / w.params.ticksPerGen)
+        : Math.min(1, (w.tick - w.latticeEndTick + alpha) / DISSOLVE_TICKS);
+      if (!w.latticeActive && t >= 1) this.voxels.clear();
+      else this.voxels.animate(t);
       this.voxels.layer.setFog(this.stage.fog.near, this.stage.fog.far);
     }
     const c = this.stage.renderer.domElement;

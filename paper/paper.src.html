@@ -48,7 +48,7 @@
 
       <div class="figure">
         <img src="./figures/world.jpg" alt="A Syntropy world in year 45: realms of coloured voxel organisms hanging from ringed rulers, with lines from followers to lords." />
-        <p class="caption"><b>Figure 1.</b> A world at year 45 (seed <span class="mono">cedar</span>), shortly after its first government. Each organism is drawn as the cells it came from, filled in its lineage's colour. A line runs from every follower to its lord in the colour of the ruler's lineage, each rank is drawn one step below the rank above it, and a ring marks each ruler. A blue line on a red body means a blue ruler commands it. The larger cubes are lattice cells that never joined a form, and labels name the largest realms and their sizes.</p>
+        <p class="caption"><b>Figure 1.</b> A world at year 45 (seed <span class="mono">cedar</span>), shortly after its first government. Each organism is drawn as the cells it came from, filled in its lineage's colour. A line runs from every follower to its lord in the colour of the ruler's lineage, each rank is drawn one step below the rank above it, and a ring marks each ruler. A blue line on a red body means a blue ruler commands it. Labels name the largest realms and their sizes.</p>
       </div>
 
       <h2>2&nbsp;&nbsp;Background and related work</h2>
@@ -101,7 +101,7 @@
 
       <h3>3.2&nbsp;&nbsp;From forms to bodies</h3>
       <p>
-        When a form holds, its cells leave the lattice and become one organism. The body is the set of integer offsets \(B_i\subset\mathbb Z^3\) of those cells from their rounded centroid, placed exactly where the form was, and the mass is the cell count \(m_i=|B_i|\). A form larger than a body can hold is cut along its longest axis into several organisms. The organism's tribe is the form's lineage, and nothing else is assigned. The rest of the lattice keeps running, so organisms appear one at a time over roughly the first thirty years while the lattice drains (Figure 3). In the browser each new body starts at the lattice's scale and condenses in place over about two thirds of a second.
+        When a form holds, its cells leave the lattice and become one organism. The body is the set of integer offsets \(B_i\subset\mathbb Z^3\) of those cells from their rounded centroid, placed exactly where the form was, and the mass is the cell count \(m_i=|B_i|\). A form larger than a body can hold is cut along its longest axis into several organisms. The organism's tribe is the form's lineage, and nothing else is assigned. The rest of the lattice keeps running, so organisms appear one at a time while it drains, and in the median world the last form comes loose in year {{handoff.lastSpawn.median|f1}} (Figure 3). What remains never holds: mostly pairs and triples of cells, below the four-cell minimum, which this rule never changes, because each of their cells has one or two live neighbours and no empty site beside them reaches seven. Once the lattice has stood still for {{params.cells.stillGens|int}} generations, or repeated a cycle of at most {{params.cells.periodMax|int}} generations for a little longer, any form able to hold has held, so the lattice ends and its last cells dissolve, a median of {{handoff.dissolved.median|int}} per world and all by year {{handoff.end.max|f1}}. The organisms never read the lattice, so this changes nothing they do. In the browser each new body starts at the lattice's scale and condenses in place over about two thirds of a second.
       </p>
 
       <h3>3.3&nbsp;&nbsp;Metabolism, growth and fission</h3>
@@ -200,7 +200,7 @@
 
       <h3>6.1&nbsp;&nbsp;A continuous hand-off from cells to organisms</h3>
       <p>
-        The lattice peaks within a few generations as the spores react, then drains as held forms come loose (Figure 3). In the median world the first organism appeared in year {{baselineLevels.Organisms.medianYear|f1}}, and over the following decades {{events.spawned|int}} forms came loose as organisms, while fission added {{events.births|int}} more. Because the hand-off happens form by form, the cell level and the organism level overlap for about thirty years, and no frame of the simulation marks a boundary between them.
+        The lattice peaks within a few generations as the spores react, then drains as held forms come loose (Figure 3). In the median world the first organism appeared in year {{baselineLevels.Organisms.medianYear|f1}}, and {{events.spawned|int}} forms had come loose as organisms by year {{handoff.lastSpawn.median|f1}}, while fission added {{events.births|int}} more over the run. Because the hand-off happens form by form, the cell level and the organism level overlap for about {{handoff.overlap|int}} years, and no frame of the simulation marks a boundary between them.
       </p>
 
       <h3>6.2&nbsp;&nbsp;The ladder across worlds</h3>
@@ -209,7 +209,7 @@
       </p>
       <div class="figure">
         <img src="./figures/transition.svg" alt="Lattice population falls while organisms rise." />
-        <p class="caption"><b>Figure 3.</b> The hand-off between levels, medians across 48 worlds, each curve scaled to its own peak. Live lattice cells (gold) fall as forms come loose (green, cumulative), and the organism population (blue) grows by detachment and then by fission.</p>
+        <p class="caption"><b>Figure 3.</b> The hand-off between levels, medians across 48 worlds, each curve scaled to its own peak. Live lattice cells (gold) fall as forms come loose (green, cumulative) and drop to zero when the lattice ends, and the organism population (blue) grows by detachment and then by fission.</p>
       </div>
       <div class="figure">
         <img src="./figures/levels.svg" alt="Cumulative share of worlds reaching each level over 150 years." />

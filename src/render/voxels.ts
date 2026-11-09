@@ -1,6 +1,8 @@
 // Draws the lattice: one shaded, ink-edged cube per live cell. Newborn cells grow in and dying
 // cells shrink away between generations, so the rule reads as motion, not flicker. Cells that come
 // loose as an organism leave without a death animation, because the organism's body takes their place.
+// When the lattice ends, its last cells are drawn as dying and the app slows their shrink to a
+// couple of seconds, then empties the layer.
 
 import type { CellsWorld } from '../sim/cells.ts';
 import { CubeLayer } from './cubes.ts';
@@ -80,6 +82,11 @@ export class Voxels {
       scales[k] = BASE * (kind === STEADY ? 1 : kind === BORN ? grow : fade);
     }
     this.layer.commit(count, { scales: true });
+  }
+
+  /** Draw nothing until the next sync. */
+  clear(): void {
+    if (this.layer.count) this.layer.commit(0, {});
   }
 
   dispose(): void {

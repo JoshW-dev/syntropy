@@ -5,14 +5,14 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { chart, bars, heatmap, quantile, PALETTE } from './plot.ts';
 import type { ExpResult } from './exp-worker.ts';
 import { DEFAULT_SOCIETY } from '../src/sim/society.ts';
-import { DEFAULT_CELLS } from '../src/sim/cells.ts';
+import { DEFAULT_CELLS, PERIOD_MAX, repeatLimit } from '../src/sim/cells.ts';
 import { DEFAULT_WORLD } from '../src/sim/world.ts';
 
 mkdirSync('paper/figures', { recursive: true });
 const read = <T>(f: string): T | null => (existsSync(f) ? (JSON.parse(readFileSync(f, 'utf8')) as T) : null);
 const save = (name: string, svg: string) => writeFileSync(`paper/figures/${name}.svg`, svg);
 const summary: Record<string, unknown> = {
-  params: { society: DEFAULT_SOCIETY, cells: { ...DEFAULT_CELLS, sMin: DEFAULT_CELLS.survive[0], sMax: DEFAULT_CELLS.survive[DEFAULT_CELLS.survive.length - 1], bMin: DEFAULT_CELLS.birth[0], bMax: DEFAULT_CELLS.birth[DEFAULT_CELLS.birth.length - 1] }, ticksPerGen: DEFAULT_WORLD.ticksPerGen },
+  params: { society: DEFAULT_SOCIETY, cells: { ...DEFAULT_CELLS, sMin: DEFAULT_CELLS.survive[0], sMax: DEFAULT_CELLS.survive[DEFAULT_CELLS.survive.length - 1], bMin: DEFAULT_CELLS.birth[0], bMax: DEFAULT_CELLS.birth[DEFAULT_CELLS.birth.length - 1], periodMax: PERIOD_MAX, stillGens: repeatLimit(DEFAULT_CELLS, 1) }, ticksPerGen: DEFAULT_WORLD.ticksPerGen },
 };
 const YEAR = 100;
 
@@ -80,6 +80,27 @@ if (base) {
     massMedian: quantile(late('meanMass'), 0.5),
     depthMedian: quantile(late('depth'), 0.5),
   };
+
+  // When the last form came loose, and when and how the lattice ended (data from before the lattice
+  // could end early has no record, and leaves the summary out).
+  const ended = base.filter((r) => r.lattice);
+  if (ended.length) {
+    const spread = (xs: number[]) => {
+      const v = [...xs].sort((a, b) => a - b);
+      return { median: quantile(v, 0.5), min: v[0], max: v[v.length - 1] };
+    };
+    summary.handoff = {
+      n: ended.length,
+      lastSpawn: spread(ended.map((r) => r.lattice.lastSpawnTick / YEAR)),
+      overlap: quantile(ended.map((r) => (r.lattice.lastSpawnTick - r.levels[1]) / YEAR), 0.5),
+      end: spread(ended.map((r) => r.lattice.endTick / YEAR)),
+      settledShare: ended.filter((r) => r.lattice.why === 'settled').length / ended.length,
+      stillShare: ended.filter((r) => r.lattice.why === 'settled' && r.lattice.period === 1).length / ended.length,
+      cycling: ended.filter((r) => r.lattice.why === 'settled' && r.lattice.period > 1).length,
+      maxPeriod: Math.max(0, ...ended.map((r) => r.lattice.period)),
+      dissolved: spread(ended.map((r) => r.lattice.dissolved)),
+    };
+  }
 
   // The hand-off from lattice to organisms.
   const early = ticks.filter((t) => t <= 4000);

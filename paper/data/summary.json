@@ -92,7 +92,9 @@
       "sMin": 1,
       "sMax": 5,
       "bMin": 7,
-      "bMax": 8
+      "bMax": 8,
+      "periodMax": 12,
+      "stillGens": 35
     },
     "ticksPerGen": 15
   },
@@ -154,6 +156,29 @@
     "popMedian": 474.22549019607845,
     "massMedian": 9.706027461737655,
     "depthMedian": 7.666666666666667
+  },
+  "handoff": {
+    "n": 48,
+    "lastSpawn": {
+      "median": 13.36,
+      "min": 6.61,
+      "max": 20.11
+    },
+    "overlap": 10.51,
+    "end": {
+      "median": 18.975,
+      "min": 12,
+      "max": 25.5
+    },
+    "settledShare": 1,
+    "stillShare": 0.9583333333333334,
+    "cycling": 2,
+    "maxPeriod": 4,
+    "dissolved": {
+      "median": 117.5,
+      "min": 69,
+      "max": 188
+    }
   },
   "thresholds": [
     {

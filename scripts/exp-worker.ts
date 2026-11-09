@@ -39,6 +39,8 @@ export interface ExpResult {
   /** Energy per cell by rank (0 = ruler), averaged at the end of the run. */
   energyByRank: number[];
   stats: Record<string, number>;
+  /** How the lattice ended: when, why, how many cells dissolved, and when the last form came loose. */
+  lattice: { endTick: number; why: string; period: number; dissolved: number; lastSpawnTick: number };
 }
 
 parentPort!.on('message', (job: ExpJob) => {
@@ -46,8 +48,14 @@ parentPort!.on('message', (job: ExpJob) => {
   const s = world.society;
   Object.assign(s.ablate, job.ablate ?? {});
   const samples: ExpSample[] = [];
+  let spawned = 0;
+  let lastSpawnTick = -1;
   while (world.tick < job.ticks && (s.count > 0 || world.latticeActive)) {
     world.step();
+    if (s.stats.spawned !== spawned) {
+      spawned = s.stats.spawned;
+      lastSpawnTick = world.tick;
+    }
     if (world.tick % job.every === 0) {
       const h = s.history[s.history.length - 1];
       samples.push({
@@ -86,6 +94,7 @@ parentPort!.on('message', (job: ExpJob) => {
     depths,
     energyByRank,
     stats: { ...s.stats },
+    lattice: { endTick: world.latticeEndTick, why: world.latticeEnd, period: world.latticePeriod, dissolved: world.dissolved, lastSpawnTick },
   };
   parentPort!.postMessage({ id: job.id, result });
 });
