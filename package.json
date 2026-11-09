@@ -7,13 +7,17 @@
   "license": "MIT",
   "scripts": {
     "dev": "vite",
-    "build": "tsc --noEmit && vite build",
+    "build": "node scripts/build-paper.ts && tsc --noEmit && vite build",
     "preview": "vite preview",
     "typecheck": "tsc --noEmit",
     "world": "node scripts/world.ts",
     "sweep": "node scripts/sweep.ts",
     "cells-search": "node scripts/cells-search.ts",
-    "url": "node scripts/url.ts"
+    "url": "node scripts/url.ts",
+    "experiments": "node scripts/experiments.ts",
+    "figures": "node scripts/figures.ts",
+    "paper": "node scripts/build-paper.ts",
+    "paper:pdf": "node scripts/paper-pdf.ts"
   },
   "engines": {
     "node": ">=22.18"
@@ -24,8 +28,11 @@
     "three": "^0.187.0"
   },
   "devDependencies": {
+    "@types/katex": "^0.16.8",
     "@types/node": "^26.6.6",
     "@types/three": "^0.187.0",
+    "katex": "^0.19.1",
+    "playwright-core": "^1.65.0",
     "typescript": "^7.0.2",
     "vite": "^8.3.6"
   }

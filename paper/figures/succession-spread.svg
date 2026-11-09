@@ -1,0 +1,40 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 420 300" width="420" height="300" font-family="'IBM Plex Sans', 'Helvetica Neue', Arial, sans-serif" font-size="12" fill="#444444">
+<line x1="64" x2="402" y1="248.0" y2="248.0" stroke="#E6E6E6" stroke-width="1"/>
+<line x1="64" x2="402" y1="201.6" y2="201.6" stroke="#E6E6E6" stroke-width="1"/>
+<line x1="64" x2="402" y1="155.2" y2="155.2" stroke="#E6E6E6" stroke-width="1"/>
+<line x1="64" x2="402" y1="108.8" y2="108.8" stroke="#E6E6E6" stroke-width="1"/>
+<line x1="64" x2="402" y1="62.4" y2="62.4" stroke="#E6E6E6" stroke-width="1"/>
+<line x1="64" x2="402" y1="16.0" y2="16.0" stroke="#E6E6E6" stroke-width="1"/>
+<polygon points="92.2,33.4 148.5,37.5 204.8,58.0 261.2,22.6 261.2,56.0 204.8,75.9 148.5,44.7 92.2,48.1" fill="#7B3FD1" fill-opacity="0.16" stroke="none"/>
+<path d="M92.2,39.7L148.5,40.9L204.8,66.4L261.2,32.9" fill="none" stroke="#7B3FD1" stroke-width="2.2" stroke-linejoin="round"  stroke-opacity="1"/>
+<circle cx="92.2" cy="39.7" r="3.5" fill="#7B3FD1" fill-opacity="1"/>
+<circle cx="148.5" cy="40.9" r="3.5" fill="#7B3FD1" fill-opacity="1"/>
+<circle cx="204.8" cy="66.4" r="3.5" fill="#7B3FD1" fill-opacity="1"/>
+<circle cx="261.2" cy="32.9" r="3.5" fill="#7B3FD1" fill-opacity="1"/>
+<line x1="64" x2="402" y1="248" y2="248" stroke="#555555" stroke-width="1"/>
+<line x1="64" x2="64" y1="16" y2="248" stroke="#555555" stroke-width="1"/>
+<line x1="101.6" x2="101.6" y1="248" y2="252" stroke="#555555"/>
+<text x="101.6" y="265" text-anchor="middle">0.6</text>
+<line x1="176.7" x2="176.7" y1="248" y2="252" stroke="#555555"/>
+<text x="176.7" y="265" text-anchor="middle">0.8</text>
+<line x1="251.8" x2="251.8" y1="248" y2="252" stroke="#555555"/>
+<text x="251.8" y="265" text-anchor="middle">1.0</text>
+<line x1="326.9" x2="326.9" y1="248" y2="252" stroke="#555555"/>
+<text x="326.9" y="265" text-anchor="middle">1.2</text>
+<line x1="402.0" x2="402.0" y1="248" y2="252" stroke="#555555"/>
+<text x="402.0" y="265" text-anchor="middle">1.4</text>
+<line x1="60" x2="64" y1="248.0" y2="248.0" stroke="#555555"/>
+<text x="56" y="252.0" text-anchor="end">0%</text>
+<line x1="60" x2="64" y1="201.6" y2="201.6" stroke="#555555"/>
+<text x="56" y="205.6" text-anchor="end">20%</text>
+<line x1="60" x2="64" y1="155.2" y2="155.2" stroke="#555555"/>
+<text x="56" y="159.2" text-anchor="end">40%</text>
+<line x1="60" x2="64" y1="108.8" y2="108.8" stroke="#555555"/>
+<text x="56" y="112.8" text-anchor="end">60%</text>
+<line x1="60" x2="64" y1="62.4" y2="62.4" stroke="#555555"/>
+<text x="56" y="66.4" text-anchor="end">80%</text>
+<line x1="60" x2="64" y1="16.0" y2="16.0" stroke="#555555"/>
+<text x="56" y="20.0" text-anchor="end">100%</text>
+<text x="233" y="288" text-anchor="middle" fill="#444444">Mean distance from the realm centre (perception radii)</text>
+<text transform="translate(16 132) rotate(-90)" text-anchor="middle" fill="#444444">Survived the succession test</text>
+</svg>
