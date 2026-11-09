@@ -15,6 +15,14 @@
     <meta property="og:image:height" content="630" />
     <meta name="twitter:card" content="summary_large_image" />
     <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <script>
+      // Paint a chosen dark or tinted look before the app loads, so it doesn't flash paper first.
+      try {
+        var look = new URLSearchParams(location.search).get('look') || localStorage.getItem('syntropy.look');
+        var ground = { night: '#0a0c12', blueprint: '#163c70', ink: '#f1ebdd', nebula: '#04050a' }[look];
+        if (ground) document.documentElement.style.setProperty('--ground', ground);
+      } catch (e) {}
+    </script>
   </head>
   <body>
     <canvas id="scene" aria-label="A 3D simulation of cells, organisms and realms"></canvas>
@@ -39,9 +47,54 @@
         <button role="radio" data-speed="8">8×</button>
       </div>
       <button id="skip" class="btn" title="Skip ahead to organisms">Skip</button>
-      <button id="new" class="btn" title="New world (N)">New world</button>
+      <button id="new" class="btn" title="New world (N)" aria-label="New world">New<span class="wide"> world</span></button>
       <button id="share" class="btn" title="Copy a link to this world">Share</button>
+      <div class="look" id="look">
+        <button id="look-btn" class="btn duo" aria-label="Look" aria-expanded="false" aria-controls="look-pop" title="Look and what to show">
+          <svg class="ico" viewBox="0 0 20 20" width="20" height="20" aria-hidden="true"><circle cx="10" cy="10" r="6.4" fill="none" stroke="currentColor" stroke-width="1.6" /><path d="M10 3.6a6.4 6.4 0 0 1 0 12.8z" /></svg>
+          <span class="txt">Look</span>
+        </button>
+        <div class="pop" id="look-pop" role="dialog" aria-label="Look" hidden>
+          <div class="pop-group" role="radiogroup" aria-labelledby="look-h">
+            <p class="pop-h" id="look-h">Look</p>
+            <div class="pop-list" id="look-list"></div>
+          </div>
+          <div class="pop-group" role="group" aria-labelledby="show-h">
+            <p class="pop-h" id="show-h">Show</p>
+            <div class="pop-list">
+              <label class="check"><input type="checkbox" data-show="chronicle" checked /><span class="box" aria-hidden="true"></span>Chronicle</label>
+              <label class="check"><input type="checkbox" data-show="lines" checked /><span class="box" aria-hidden="true"></span>Command lines</label>
+              <label class="check"><input type="checkbox" data-show="rings" checked /><span class="box" aria-hidden="true"></span>Ruler rings</label>
+              <label class="check"><input type="checkbox" data-show="food" checked /><span class="box" aria-hidden="true"></span>Food</label>
+            </div>
+          </div>
+          <div class="pop-group">
+            <button id="hide-ui" class="pop-row" title="Hide everything but the world (H)">Hide UI<kbd>H</kbd></button>
+          </div>
+        </div>
+      </div>
+      <button id="env-btn" class="btn duo" aria-label="Environment" aria-expanded="false" aria-controls="env" title="Environment">
+        <svg class="ico" viewBox="0 0 20 20" width="20" height="20" aria-hidden="true"><path d="M3 6.5h14M3 13.5h14" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" /><circle cx="7.5" cy="6.5" r="2.4" /><circle cx="12.5" cy="13.5" r="2.4" /></svg>
+        <span class="txt">Environment</span>
+      </button>
     </nav>
+
+    <aside class="env" id="env" role="dialog" aria-modal="false" aria-labelledby="env-title">
+      <div class="env-head">
+        <h2 id="env-title">Environment</h2>
+        <button id="env-close" class="btn icon" aria-label="Close environment" title="Close (Esc)">
+          <svg viewBox="0 0 20 20" width="20" height="20" aria-hidden="true"><path d="M5.5 5.5l9 9M14.5 5.5l-9 9" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" /></svg>
+        </button>
+      </div>
+      <p class="env-note">Changes apply now, and Share links keep them.</p>
+      <div id="env-knobs"></div>
+      <div class="env-actions">
+        <button id="env-restart" class="btn">Restart world with these settings</button>
+        <button id="env-reset" class="text-btn">Reset to defaults</button>
+      </div>
+    </aside>
+
+    <button id="show-ui" class="show-ui" title="Show UI (H)" hidden>Show UI</button>
 
     <dl class="readout" id="readout"></dl>
 
@@ -49,7 +102,10 @@
     <div class="tip" id="tip" hidden></div>
 
     <footer class="foot">
-      <a href="https://github.com/JoshW-dev/syntropy" target="_blank" rel="noopener">How it works</a>
+      <span class="links">
+        <a href="/paper/">Paper</a>
+        <a href="https://github.com/JoshW-dev/syntropy" target="_blank" rel="noopener">GitHub</a>
+      </span>
       <span id="seed-label"></span>
     </footer>
 

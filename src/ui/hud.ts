@@ -1,8 +1,9 @@
 // The text layer: the ladder of levels, the chronicle, controls, readouts, realm labels and a
-// hover tip. Text is the legend: tribe and realm names appear in their stroke colour.
+// hover tip. Text is the legend: tribe and realm names appear in their stroke colour. Those colours
+// are custom properties (--t0 to --t5), so a new theme recolours lines already on screen.
 
 import { TRIBE_NAMES } from '../sim/names.ts';
-import { TRIBE_STROKE } from '../render/palette.ts';
+import type { Theme } from '../render/theme.ts';
 
 export interface Step {
   name: string;
@@ -45,14 +46,7 @@ export class Hud {
   private readoutKey = '';
 
   constructor(steps: Step[], handlers: Handlers) {
-    for (const [i, s] of steps.entries()) {
-      const li = document.createElement('li');
-      li.className = 'step';
-      li.dataset.state = 'next';
-      li.innerHTML = `<span class="mark" aria-hidden="true"></span><div class="body"><div class="head"><span class="num">${i + 1}</span><span class="name">${s.name}</span><span class="when"></span></div><p class="rule">${s.rule}</p><p class="crit">${s.done}</p></div>`;
-      this.ladder.appendChild(li);
-      this.rows.push(li);
-    }
+    this.setSteps(steps);
     this.speedBtns = [...document.querySelectorAll<HTMLButtonElement>('#speed button')];
     this.pauseBtn.addEventListener('click', () => handlers.pause());
     this.skipBtn.addEventListener('click', () => handlers.skip());
@@ -64,6 +58,29 @@ export class Hud {
       setTimeout(() => (share.textContent = 'Share'), 1600);
     });
     for (const b of this.speedBtns) b.addEventListener('click', () => handlers.speed(Number(b.dataset.speed)));
+  }
+
+  setSteps(steps: Step[]): void {
+    this.ladder.replaceChildren();
+    this.rows = [];
+    for (const [i, s] of steps.entries()) {
+      const li = document.createElement('li');
+      li.className = 'step';
+      li.dataset.state = 'next';
+      li.innerHTML = `<span class="mark" aria-hidden="true"></span><div class="body"><div class="head"><span class="num">${i + 1}</span><span class="name">${s.name}</span><span class="when"></span></div><p class="rule">${s.rule}</p><p class="crit">${s.done}</p></div>`;
+      this.ladder.appendChild(li);
+      this.rows.push(li);
+    }
+  }
+
+  /** Apply a theme's HUD colours and use its tribe strokes for names in text. */
+  setTheme(theme: Theme): void {
+    const root = document.documentElement;
+    for (const [k, v] of Object.entries(theme.css)) root.style.setProperty(k, v);
+    theme.strokes.forEach((c, i) => root.style.setProperty(`--t${i}`, c));
+    root.style.colorScheme = theme.dark ? 'dark' : '';
+    root.dataset.theme = theme.id;
+    document.querySelector('meta[name="theme-color"]')?.setAttribute('content', theme.ground);
   }
 
   /** `reached[i]` is the label for a reached level ("gen 64", "year 12") or null. */
@@ -126,7 +143,7 @@ export class Hud {
     // Realm and tribe names are capitalised words; colour each one that we know.
     return esc.replace(/\b[A-Z][a-z]+\b/g, (m) => {
       const t = this.realmTribe.get(m) ?? TRIBE_NAMES.indexOf(m as (typeof TRIBE_NAMES)[number]);
-      return t >= 0 ? `<b style="color:${TRIBE_STROKE[t]}">${m}</b>` : m;
+      return t >= 0 ? `<b style="color:var(--t${t})">${m}</b>` : m;
     });
   }
 
@@ -160,7 +177,7 @@ export class Hud {
       }
       el.style.display = '';
       el.style.transform = `translate(${l.x.toFixed(1)}px, ${l.y.toFixed(1)}px) translate(-50%, -100%)`;
-      const html = `<b style="color:${TRIBE_STROKE[l.tribe]}">${l.name}</b> <span>${l.size}</span>`;
+      const html = `<b style="color:var(--t${l.tribe})">${l.name}</b> <span>${l.size}</span>`;
       if (el.innerHTML !== html) el.innerHTML = html;
     });
   }
@@ -176,6 +193,6 @@ export class Hud {
   }
 
   tribeWord(t: number): string {
-    return `<b style="color:${TRIBE_STROKE[t]}">${TRIBE_NAMES[t]}</b>`;
+    return `<b style="color:var(--t${t})">${TRIBE_NAMES[t]}</b>`;
   }
 }

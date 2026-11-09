@@ -1,63 +1,59 @@
-// The app: runs Cells until its forms hold, lifts the forms into organisms, then runs the
-// Society, and keeps the ladder, chronicle and readouts in step with the simulation.
+// The app: one continuous world. The lattice runs from the first frame, forms that hold come loose
+// as organisms one at a time, and the society grows out of them. The ladder, chronicle and readouts
+// only report what the simulation measured.
 
 import * as THREE from 'three';
 import { Stage } from './render/stage.ts';
 import { Voxels } from './render/voxels.ts';
 import { Bodies } from './render/bodies.ts';
-import { CellsWorld } from './sim/cells.ts';
-import { Society } from './sim/society.ts';
-import { foundersFrom, withOverrides, LADDER, type WorldParams } from './sim/world.ts';
-import { makeRng, randomSeed } from './sim/rng.ts';
+import { PAPER, type Theme } from './render/theme.ts';
+import { World, withOverrides, LADDER, type WorldParams, type Overrides } from './sim/world.ts';
+import { randomSeed } from './sim/rng.ts';
 import { TRIBE_NAMES } from './sim/names.ts';
 import { Hud, type Step } from './ui/hud.ts';
 
-type Phase = 'cells' | 'hold' | 'lift' | 'society';
-
-const GENS_PER_SECOND = 4;
 const TICKS_PER_SECOND = 60;
-const TICKS_PER_YEAR = 100;
-const HOLD_SECONDS = 1.1;
-const LIFT_SECONDS = 1.9;
+export const TICKS_PER_YEAR = 100;
 
 function steps(p: WorldParams): Step[] {
   const c = p.cells;
   const s = p.society;
   const list = (xs: number[]) => (xs.length === 2 ? `${xs[0]} or ${xs[1]}` : `${xs[0]} to ${xs[xs.length - 1]}`);
   return [
-    { name: LADDER[0], rule: `A dead cell with ${list(c.birth)} live neighbours is born. A live cell with ${list(c.survive)} survives.`, done: `Reached when ${c.targetForms} forms hold their shape for ${c.holdGens} generations.` },
-    { name: LADDER[1], rule: 'Each form that held together becomes one body. Bodies eat, move, split and age.', done: 'Reached when the forms that held become bodies.' },
-    { name: LADDER[2], rule: 'A newborn follows its parent. Kin bow to much stronger kin. A ring marks each chief.', done: `Reached when ${s.tribeCount} kin groups of ${s.tribeMin}+ follow chiefs.` },
-    { name: LADDER[3], rule: "Winners take losers as followers, and tribute flows up. Followers hang below their lord on a line in the ruler's colour.", done: `Reached when a realm of ${s.hierSize}+ rules ${s.hierTribes} tribes through ${s.hierDepth + 1} ranks.` },
-    { name: LADDER[4], rule: 'When a ruler dies, the strongest follower inherits. The others stay only if the heir is clearly stronger.', done: `Reached when a realm of ${s.govSize}+ outlives its ruler.` },
+    { name: LADDER[0], rule: `A dead cell with ${list(c.birth)} live neighbours is born. A live cell with ${list(c.survive)} survives.`, done: 'The lattice starts alive.' },
+    { name: LADDER[1], rule: `A form that keeps its shape for ${c.holdGens} generations comes loose as one body. Bodies eat, grow a cell on surplus, burn one when starving, and split at ${s.splitMass} cells.`, done: 'Reached when the first form comes loose.' },
+    { name: LADDER[2], rule: 'Each organism follows whoever keeps it safest, net of the tribute it would pay. Kin tax each other less. A ring marks a chief.', done: `Reached when ${s.tribeCount} groups of ${s.tribeMin}+, mostly kin, follow one chief.` },
+    { name: LADDER[3], rule: "Losers of fights lose cells to the winner, and tribute flows up every chain. Followers hang below their lord on a line in the ruler's colour.", done: `Reached when a realm of ${s.hierSize}+ rules other tribes through ${s.hierDepth + 1} ranks.` },
+    { name: LADDER[4], rule: 'Nobody inherits anything. When a ruler dies, every follower chooses again.', done: `Reached when ${Math.round(s.govKeep * 100)}% of a realm of ${s.govSize}+ regroup under one new ruler.` },
   ];
 }
 
 export class App {
-  private stage: Stage;
-  private hud: Hud;
-  private params: WorldParams;
-  private seed = '';
-  private phase: Phase = 'cells';
-  private cells!: CellsWorld;
+  readonly stage: Stage;
+  readonly hud: Hud;
+  params: WorldParams;
+  theme: Theme = PAPER;
+  seed = '';
+  world!: World;
   private voxels: Voxels | null = null;
-  private society: Society | null = null;
-  private bodies: Bodies | null = null;
-  private phaseT = 0;
-  private liftTargets = new Float32Array(0);
+  bodies: Bodies | null = null;
   private speed: number;
   private paused = false;
   private acc = 0;
   private last = 0;
   private seenEvents = 0;
   private realmsSeen = 0;
-  private cellsReachedGen = -1;
+  private lastGen = -1;
   private pointer: { x: number; y: number } | null = null;
   private tmp = new THREE.Vector3();
+  private overrides: Overrides;
+  /** Which world layers are drawn; kept across restarts. */
+  readonly show = { lines: true, rings: true, food: true };
 
-  constructor(canvas: HTMLCanvasElement, opts: { overrides?: object; speed?: number; reducedMotion: boolean }) {
-    this.params = withOverrides(opts.overrides as Parameters<typeof withOverrides>[0]);
-    this.speed = opts.speed ?? (opts.reducedMotion ? 1 : 2);
+  constructor(canvas: HTMLCanvasElement, opts: { overrides?: Overrides; speed?: number; reducedMotion: boolean }) {
+    this.overrides = opts.overrides ?? {};
+    this.params = withOverrides(this.overrides);
+    this.speed = opts.speed ?? 1;
     this.stage = new Stage(canvas, opts.reducedMotion);
     this.hud = new Hud(steps(this.params), {
       pause: () => this.togglePause(),
@@ -71,14 +67,16 @@ export class App {
           return false;
         }
       },
-      skip: () => this.skipCells(),
+      skip: () => undefined,
     });
     this.hud.setSpeed(this.speed);
+    this.hud.setSkippable(false);
 
     canvas.addEventListener('pointermove', (e) => (this.pointer = { x: e.clientX, y: e.clientY }));
     canvas.addEventListener('pointerleave', () => (this.pointer = null));
     window.addEventListener('keydown', (e) => {
-      if (e.target instanceof HTMLInputElement) return;
+      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLSelectElement) return;
+      if (e.metaKey || e.ctrlKey || e.altKey) return;
       if (e.code === 'Space') {
         e.preventDefault();
         this.togglePause();
@@ -91,28 +89,31 @@ export class App {
     });
   }
 
-  start(seed: string): void {
+  /** Start (or restart) a world. `overrides` replaces the environment settings when given. */
+  start(seed: string, overrides?: Overrides): void {
+    if (overrides) {
+      this.overrides = overrides;
+      this.params = withOverrides(overrides);
+      this.hud.setSteps(steps(this.params));
+    }
     this.seed = seed;
     if (location.hash.slice(1) !== seed) history.replaceState(null, '', `${location.pathname}${location.search}#${seed}`);
     this.voxels?.dispose();
     this.bodies?.dispose();
-    this.voxels = null;
-    this.bodies = null;
-    this.society = null;
-    this.cells = new CellsWorld(this.params.cells, makeRng(`${seed}:cells`));
-    this.voxels = new Voxels(this.cells, this.stage.fog);
-    this.stage.scene.add(this.voxels.mesh);
-    this.phase = 'cells';
-    this.phaseT = 0;
+    this.world = new World(seed, this.params);
+    this.voxels = new Voxels(this.world.cells, this.theme);
+    this.stage.scene.add(this.voxels.layer.mesh);
+    this.bodies = new Bodies(this.world.society, this.stage.fog, this.theme);
+    Object.assign(this.bodies.show, this.show);
+    this.stage.scene.add(this.bodies.group);
     this.acc = 0;
     this.seenEvents = 0;
     this.realmsSeen = 0;
-    this.cellsReachedGen = -1;
+    this.lastGen = this.world.cells.generation;
     this.hud.clearChronicle();
     this.hud.setSeed(seed);
-    this.hud.setSkippable(true);
     this.hud.setLabels([]);
-    this.hud.push('gen 0', `${this.params.cells.lineages} lineages of cells, ${this.cells.population} alive.`, 'level');
+    this.hud.push('gen 0', `${this.params.cells.lineages} lineages of cells, ${this.world.cells.population.toLocaleString()} alive.`, 'level');
     this.updateHud();
   }
 
@@ -128,149 +129,110 @@ export class App {
     requestAnimationFrame(frame);
   }
 
-  /** Advance the simulation by `seconds` of wall time at 60 fps, then draw one frame. */
-  advance(seconds: number): { phase: Phase; year: number; levels: number[] } {
+  /** Advance by `seconds` of wall time at 60 fps, then draw one frame (dev and capture tooling). */
+  advance(seconds: number): { year: number; levels: number[]; organisms: number } {
     const frames = Math.round(seconds * 60);
     for (let f = 0; f < frames; f++) this.update(1 / 60);
     this.stage.render();
-    return { phase: this.phase, year: this.society ? Math.floor(this.society.tick / TICKS_PER_YEAR) : 0, levels: this.society?.levels ?? [] };
+    const s = this.world.society;
+    return { year: Math.floor(this.world.tick / TICKS_PER_YEAR), levels: [...s.levels], organisms: s.count };
   }
 
-  private togglePause(): void {
+  /** The environment overrides the next start() or new world will use. */
+  getOverrides(): Overrides {
+    return this.overrides;
+  }
+
+  /** Remember overrides for the next start() or new world, without restarting this one. */
+  setOverrides(overrides: Overrides): void {
+    this.overrides = overrides;
+    this.params = withOverrides(overrides);
+  }
+
+  /** Show or hide one layer of the world: command lines, ruler rings or the food stipple. */
+  setShow(layer: keyof App['show'], on: boolean): void {
+    this.show[layer] = on;
+    if (this.bodies) this.bodies.show[layer] = on;
+  }
+
+  setTheme(theme: Theme): void {
+    this.theme = theme;
+    this.stage.setTheme(theme);
+    this.voxels?.setTheme(theme);
+    this.bodies?.setTheme(theme);
+    this.hud.setTheme(theme);
+  }
+
+  togglePause(): void {
     this.paused = !this.paused;
     this.hud.setPaused(this.paused);
   }
 
-  private setSpeed(n: number): void {
+  setSpeed(n: number): void {
     this.speed = n;
     this.hud.setSpeed(n);
   }
 
-  private newWorld(): void {
+  newWorld(): void {
     this.start(randomSeed());
   }
 
-  private skipCells(): void {
-    if (this.phase !== 'cells' && this.phase !== 'hold') return;
-    while (!this.cells.complete) this.cells.step();
-    this.cells.scanForms();
-    this.voxels!.sync(this.cells);
-    this.beginLift();
-  }
-
   private update(dt: number): void {
+    const w = this.world;
     const run = this.paused ? 0 : dt * this.speed;
-    if (this.phase === 'cells') {
-      this.acc += run * GENS_PER_SECOND;
-      let stepped = false;
-      while (this.acc >= 1) {
-        this.acc -= 1;
-        this.cells.step();
-        stepped = true;
-        if (this.cells.complete) break;
-      }
-      if (stepped) this.voxels!.sync(this.cells);
-      this.voxels!.animate(Math.min(1, this.acc));
-      if (this.cells.complete) {
-        this.cells.scanForms();
-        this.voxels!.sync(this.cells);
-        this.voxels!.animate(1);
-        this.phase = 'hold';
-        this.phaseT = 0;
-        this.cellsReachedGen = this.cells.generation;
-        this.hud.push(`gen ${this.cells.generation}`, `${this.cells.holding} forms hold their shape.`, 'level');
-      }
-      this.voxels!.updateFog();
-    } else if (this.phase === 'hold') {
-      this.phaseT += run / HOLD_SECONDS;
-      this.voxels!.updateFog();
-      if (this.phaseT >= 1) this.beginLift();
-    } else if (this.phase === 'lift') {
-      this.phaseT = Math.min(1, this.phaseT + Math.max(run, this.paused ? 0 : dt) / LIFT_SECONDS);
-      this.voxels!.lift(this.cells, this.liftTargets, this.phaseT);
-      this.voxels!.updateFog();
-      const appear = Math.min(1, Math.max(0, (this.phaseT - 0.35) / 0.65));
-      this.syncViewport();
-      this.bodies!.update(0, appear, this.stage.pixelScale, this.stage.renderer.getPixelRatio());
-      if (this.phaseT >= 1) {
-        this.voxels!.dispose();
-        this.voxels = null;
-        this.phase = 'society';
-        this.acc = 0;
-      }
-    } else {
-      const s = this.society!;
-      this.acc += run * TICKS_PER_SECOND;
-      let steps = 0;
-      while (this.acc >= 1 && steps < 24) {
-        s.step();
-        this.acc -= 1;
-        steps++;
-      }
-      if (steps === 24) this.acc = Math.min(this.acc, 1);
-      this.syncViewport();
-      this.bodies!.update(Math.min(1, this.acc), 1, this.stage.pixelScale, this.stage.renderer.getPixelRatio());
-      this.drainEvents();
-      this.updateOverlay();
+    this.acc += run * TICKS_PER_SECOND;
+    let n = 0;
+    while (this.acc >= 1 && n < 24) {
+      w.step();
+      this.acc -= 1;
+      n++;
     }
+    if (n === 24) this.acc = Math.min(this.acc, 1);
+    const alpha = Math.min(1, this.acc);
+
+    if (this.voxels) {
+      if (w.cells.generation !== this.lastGen) {
+        this.lastGen = w.cells.generation;
+        this.voxels.sync(w.cells);
+      }
+      const t = Math.min(1, (w.tick - w.lastGenTick + alpha) / w.params.ticksPerGen);
+      this.voxels.animate(w.latticeActive ? t : 1);
+      this.voxels.layer.setFog(this.stage.fog.near, this.stage.fog.far);
+    }
+    const c = this.stage.renderer.domElement;
+    this.bodies!.setViewport(c.clientWidth, c.clientHeight);
+    this.bodies!.update(alpha, this.stage.pixelScale, this.stage.renderer.getPixelRatio());
+    this.drainEvents();
+    this.updateOverlay();
     this.updateHud();
   }
 
-  private syncViewport(): void {
-    const c = this.stage.renderer.domElement;
-    this.bodies?.setViewport(c.clientWidth, c.clientHeight);
-  }
-
-  private beginLift(): void {
-    const founders = foundersFrom(this.cells);
-    this.society = new Society(this.params.society, makeRng(`${this.seed}:society`), founders);
-    this.society.levels[0] = 0;
-    this.society.levels[1] = 0;
-    this.bodies = new Bodies(this.society, this.stage.fog);
-    this.stage.scene.add(this.bodies.group);
-    // Cells of a form that held flow into its organism; cells of the rest shrink where they are.
-    this.liftTargets = new Float32Array(this.cells.forms.length * 3).fill(NaN);
-    for (const f of founders) {
-      this.liftTargets[3 * f.label] = Math.max(-0.95, Math.min(0.95, f.x));
-      this.liftTargets[3 * f.label + 1] = Math.max(-0.95, Math.min(0.95, f.y));
-      this.liftTargets[3 * f.label + 2] = Math.max(-0.95, Math.min(0.95, f.z));
-    }
-    if (this.cellsReachedGen < 0) this.cellsReachedGen = this.cells.generation;
-    this.phase = 'lift';
-    this.phaseT = 0;
-    this.hud.setSkippable(false);
-    const left = this.cells.forms.length - founders.length;
-    this.hud.push('year 0', `The ${founders.length} forms that held become organisms${left > 0 ? `; ${left} that didn't fade` : ''}.`, 'level');
-  }
-
   private drainEvents(): void {
-    const s = this.society!;
+    const s = this.world.society;
     for (; this.realmsSeen < s.realms.length; this.realmsSeen++) {
       const r = s.realms[this.realmsSeen];
       this.hud.rememberRealm(r.name, r.tribe);
     }
     const fresh = s.emitted - this.seenEvents;
     if (fresh <= 0) return;
-    const list = s.events.slice(-Math.min(fresh, 5));
-    for (const e of list) this.hud.push(`year ${Math.floor(e.tick / TICKS_PER_YEAR)}`, e.text, e.kind);
+    for (const e of s.events.slice(-Math.min(fresh, 5))) this.hud.push(`year ${Math.floor(e.tick / TICKS_PER_YEAR)}`, e.text, e.kind);
     this.seenEvents = s.emitted;
   }
 
   private updateOverlay(): void {
-    const s = this.society!;
+    const s = this.world.society;
     const b = this.bodies!;
     const canvas = this.stage.renderer.domElement;
     const w = canvas.clientWidth;
     const h = canvas.clientHeight;
     const cam = this.stage.camera;
     const realms = s.standingRealms().filter((r) => r.notable).slice(0, w < 720 ? 2 : 4);
-    // Largest realms first; drop a label that would overlap one already placed.
     const placed: { x: number; y: number; w: number }[] = [];
     this.hud.setLabels(
       realms.map((r) => {
         const v = b.positionOf(r.sovereign, this.tmp).project(cam);
         const x = (v.x * 0.5 + 0.5) * w;
-        const y = (-v.y * 0.5 + 0.5) * h - 12;
+        const y = (-v.y * 0.5 + 0.5) * h - 14;
         const width = (r.name.length + String(r.size).length + 1) * 7.5;
         const clash = placed.some((q) => Math.abs(q.x - x) < (q.w + width) / 2 + 6 && Math.abs(q.y - y) < 18);
         if (v.z > 1 || clash || !Number.isFinite(x)) return { x: NaN, y: NaN, name: r.name, size: r.size, tribe: r.tribe };
@@ -278,7 +240,6 @@ export class App {
         return { x, y, name: r.name, size: r.size, tribe: r.tribe };
       }),
     );
-    b.setViewport(w, h);
     if (!this.pointer) {
       b.highlight(-1);
       this.hud.setTip(0, 0, null);
@@ -300,37 +261,28 @@ export class App {
     let role: string;
     if (s.lord[slot] < 0) role = realm ? `rules <b>${realm.name}</b>` : below > 0 ? 'leads a small band' : 'answers to no one';
     else role = `rank ${s.depth[slot] + 1}${realm ? ` in <b>${realm.name}</b>` : ''}, serves a ${this.hud.tribeWord(s.tribe[s.lord[slot]])}`;
-    const lines = [`${tribe} organism, age ${age}`, role, below > 0 ? `${below} below it, ${s.nChild[slot]} direct` : 'no followers'];
+    const lines = [`${tribe} organism, ${s.mass[slot]} cells, age ${age}`, role, below > 0 ? `${below} below it, ${s.nChild[slot]} direct` : 'no followers'];
     this.hud.setTip(this.pointer.x, this.pointer.y, lines.join('<br>'));
   }
 
   private updateHud(): void {
-    const s = this.society;
-    const reached: (string | null)[] = [null, null, null, null, null];
-    if (this.cellsReachedGen >= 0) reached[0] = `gen ${this.cellsReachedGen}`;
-    if (s) {
-      reached[1] = 'year 0';
-      for (let i = 2; i < 5; i++) if (s.levels[i] >= 0) reached[i] = `year ${Math.floor(s.levels[i] / TICKS_PER_YEAR)}`;
-    }
+    const w = this.world;
+    const s = w.society;
+    const reached = s.levels.map((t, i) => (t < 0 ? null : i === 0 ? 'gen 0' : `year ${Math.floor(t / TICKS_PER_YEAR)}`));
     this.hud.setLadder(reached);
-    if (!s || this.phase !== 'society') {
-      this.hud.setReadout([
-        ['Generation', String(this.cells.generation)],
-        ['Live cells', this.cells.population.toLocaleString()],
-        ['Forms holding', `${this.cells.holding} / ${this.params.cells.targetForms}`],
-      ]);
-      return;
-    }
     const standing = s.standingRealms();
     const major = standing.filter((r) => r.size >= s.p.notableSize);
     const top = major[0];
-    this.hud.setReadout([
-      ['Year', String(Math.floor(s.tick / TICKS_PER_YEAR))],
-      ['Organisms', s.count.toLocaleString()],
-      ['Realms', String(major.length)],
-      ['Largest', top ? `${top.name} ${top.size}` : 'none'],
-      ['Deepest chain', ((n) => `${n} rank${n === 1 ? '' : 's'}`)(Math.max(0, ...major.map((r) => r.depth)) + 1)],
-    ]);
+    const ranks = Math.max(0, ...major.map((r) => r.depth)) + 1;
+    const items: [string, string][] = [['Year', String(Math.floor(w.tick / TICKS_PER_YEAR))]];
+    if (w.latticeActive && w.cells.population > 0) items.push(['Lattice cells', w.cells.population.toLocaleString()]);
+    items.push(['Organisms', s.count.toLocaleString()]);
+    if (s.count > 0) {
+      items.push(['Realms', String(major.length)]);
+      items.push(['Largest', top ? `${top.name} ${top.size}` : 'none']);
+      items.push(['Deepest chain', `${ranks} rank${ranks === 1 ? '' : 's'}`]);
+    }
+    this.hud.setReadout(items);
   }
 }
 

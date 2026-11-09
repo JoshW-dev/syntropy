@@ -1,76 +1,65 @@
-// Draws the Society: organisms as shaded ink spheres (fill = tribe), one line from every
-// follower to its lord (stroke = the ruler's tribe), a ring around each ruler, and the food
-// field as a faint green stipple. Bigger spheres command more followers.
+// Draws the organisms: each body is its own cells, drawn with the same cube as the lattice. A body
+// that just came loose starts at lattice scale exactly where its form was and condenses over about
+// two thirds of a second. One line runs from every follower to its lord in the ruler's tribe colour,
+// a ring marks each ruler, and the food field shows as a faint stipple. Followers are drawn lowered by
+// HANG per rank so a realm reads as a tree hanging from its ruler; the offset is only a drawing
+// convention, and the simulation never sees it.
 
 import * as THREE from 'three';
 import { LineSegments2 } from 'three/examples/jsm/lines/LineSegments2.js';
 import { LineSegmentsGeometry } from 'three/examples/jsm/lines/LineSegmentsGeometry.js';
 import { LineMaterial } from 'three/examples/jsm/lines/LineMaterial.js';
-import type { Society } from '../sim/society.ts';
-import { INK, TRIBE_FILL, TRIBE_STROKE, hexToRgb } from './palette.ts';
+import { MAXB, type Society } from '../sim/society.ts';
+import { CubeLayer } from './cubes.ts';
+import { hexToRgb } from './palette.ts';
+import type { Theme } from './theme.ts';
 
-const POINT_VERT = /* glsl */ `
-  attribute vec3 color;
+/** Drawn drop per rank below the ruler, in world units, and the deepest rank that drops further. */
+const HANG = 0.05;
+const HANG_RANKS = 8;
+/** Share of the gap to the target drop closed each frame, so a change of lord glides. */
+const HANG_EASE = 0.08;
+const FLOOR = -0.97;
+/** Bodies are drawn a little smaller than their physical size, which leaves air between neighbours. */
+const DRAW_SCALE = 0.8;
+
+const RING_VERT = /* glsl */ `
   attribute float size;
-  attribute float ring;
+  attribute float strength;
   uniform float uScale;
-  uniform float uMinPx;
-  varying vec3 vColor;
-  varying float vRing;
-  varying float vRingAlpha;
+  varying float vStrength;
   varying float vPx;
   varying float vDepth;
   void main() {
-    vRingAlpha = ring;
     vec4 mv = modelViewMatrix * vec4(position, 1.0);
-    float px = size > 0.0 ? max(uMinPx * min(1.0, size * 40.0), uScale * size / -mv.z) : 0.0;
-    float pad = ring > 0.0 ? max(5.0, px * 0.45) : 0.0;
-    gl_PointSize = px + pad * 2.0;
-    vColor = color;
-    vRing = ring > 0.0 ? (px / (px + pad * 2.0)) : 0.0;
+    gl_PointSize = max(12.0, uScale * size / -mv.z);
     vPx = gl_PointSize;
+    vStrength = strength;
     vDepth = -mv.z;
     gl_Position = projectionMatrix * mv;
   }
 `;
 
-const POINT_FRAG = /* glsl */ `
-  uniform vec3 uOutline;
+const RING_FRAG = /* glsl */ `
+  uniform vec3 uInk;
   uniform vec3 uGround;
   uniform float uFogNear;
   uniform float uFogFar;
   uniform float uDpr;
-  varying vec3 vColor;
-  varying float vRing;
-  varying float vRingAlpha;
+  varying float vStrength;
   varying float vPx;
   varying float vDepth;
   void main() {
     vec2 q = gl_PointCoord * 2.0 - 1.0;
     float r = length(q);
     float radiusPx = vPx * 0.5;
+    float line = 1.5 * uDpr / radiusPx;
     float aa = 1.0 / radiusPx;
-    float line = min(1.5 * uDpr, radiusPx * 0.22) / radiusPx;
-    float body = vRing > 0.0 ? vRing : 1.0;
+    float d = abs(r - (1.0 - line));
+    float a = (1.0 - smoothstep(line * 0.5, line * 0.5 + aa, d)) * vStrength;
+    if (a < 0.01) discard;
     float fog = smoothstep(uFogNear, uFogFar, vDepth);
-    vec3 ink = mix(uOutline, uGround, fog);
-    if (vRing > 0.0 && r > body + aa) {
-      // The ruler's ring: a thin circle around the body.
-      float d = abs(r - (1.0 - line));
-      float a = (1.0 - smoothstep(line * 0.5, line * 0.5 + aa, d)) * vRingAlpha;
-      if (a <= 0.01) discard;
-      gl_FragColor = vec4(ink, a);
-      return;
-    }
-    float alpha = 1.0 - smoothstep(body - aa, body, r);
-    if (alpha <= 0.01) discard;
-    float rn = r / body;
-    vec3 n = vec3(q / body, sqrt(max(0.0, 1.0 - rn * rn)));
-    float diff = max(dot(n, normalize(vec3(-0.4, 0.6, 0.7))), 0.0);
-    vec3 col = vColor * (0.7 + 0.34 * diff);
-    float edge = smoothstep(body - line - aa, body - line, r);
-    col = mix(col, uOutline, edge);
-    gl_FragColor = vec4(mix(col, uGround, fog), alpha);
+    gl_FragColor = vec4(mix(uInk, uGround, fog), a * (1.0 - 0.7 * fog));
   }
 `;
 
@@ -91,6 +80,7 @@ const FOOD_VERT = /* glsl */ `
 
 const FOOD_FRAG = /* glsl */ `
   uniform vec3 uColor;
+  uniform float uAlpha;
   uniform float uFogNear;
   uniform float uFogFar;
   varying float vLevel;
@@ -99,37 +89,51 @@ const FOOD_FRAG = /* glsl */ `
     vec2 q = gl_PointCoord * 2.0 - 1.0;
     if (dot(q, q) > 1.0 || vLevel < 0.02) discard;
     float fog = smoothstep(uFogNear, uFogFar, vDepth);
-    gl_FragColor = vec4(uColor, vLevel * (1.0 - fog));
+    gl_FragColor = vec4(uColor, vLevel * uAlpha * (1.0 - fog));
   }
 `;
 
 export class Bodies {
   readonly group = new THREE.Group();
+  readonly cubes: CubeLayer;
   /** Packed draw index -> society slot, for picking. */
   readonly slotOf: Int32Array;
   drawn = 0;
   readonly screen: Float32Array;
+  show = { lines: true, rings: true, food: true };
 
-  private points: THREE.Points;
-  private pointGeo: THREE.BufferGeometry;
-  private pos: Float32Array;
-  private col: Float32Array;
-  private size: Float32Array;
-  private ring: Float32Array;
-  private pointMat: THREE.ShaderMaterial;
+  private centers: Float32Array;
+  /** Current drawn drop of each society slot, eased toward HANG * rank. */
+  private hang: Float32Array;
+  /** Birth tick seen for each slot, so a reused slot starts at its own drop. */
+  private bornSeen: Float64Array;
+  private drawIndex: Int32Array;
+  private society: Society;
+  private fog: THREE.Fog;
+  private cssWidth = 1;
+  private cssHeight = 1;
+  private fills: [number, number, number][];
+  private strokes: [number, number, number][];
+
+  private rings: THREE.Points;
+  private ringGeo: THREE.BufferGeometry;
+  private ringPos: Float32Array;
+  private ringSize: Float32Array;
+  private ringStrength: Float32Array;
+  private ringMat: THREE.ShaderMaterial;
 
   private lines: LineSegments2;
   private lineGeo: LineSegmentsGeometry;
   private lineMat: LineMaterial;
   private linePos: Float32Array;
   private lineCol: Float32Array;
-  /** The hovered organism's chain of command, drawn heavier and on top. */
+  private lineOpacity = 0.75;
+
   private chain: LineSegments2;
   private chainGeo: LineSegmentsGeometry;
   private chainMat: LineMaterial;
   private chainPos: Float32Array;
   private chainCol: Float32Array;
-  private drawIndex: Int32Array;
 
   private food: THREE.Points;
   private foodGeo: THREE.BufferGeometry;
@@ -137,46 +141,44 @@ export class Bodies {
   private foodMat: THREE.ShaderMaterial;
   private foodFrame = 0;
 
-  private fills = TRIBE_FILL.map(hexToRgb);
-  private strokes = TRIBE_STROKE.map(hexToRgb);
-  private society: Society;
-  private fog: THREE.Fog;
-  private cssWidth = 1;
-  private cssHeight = 1;
-
-  constructor(society: Society, fog: THREE.Fog) {
+  constructor(society: Society, fog: THREE.Fog, theme: Theme) {
     this.society = society;
     this.fog = fog;
     const M = society.M;
+    this.fills = theme.fills.map(hexToRgb);
+    this.strokes = theme.strokes.map(hexToRgb);
     this.slotOf = new Int32Array(M);
+    this.drawIndex = new Int32Array(M).fill(-1);
     this.screen = new Float32Array(M * 2);
-    this.pos = new Float32Array(M * 3);
-    this.col = new Float32Array(M * 3);
-    this.size = new Float32Array(M);
-    this.ring = new Float32Array(M);
-    this.pointGeo = new THREE.BufferGeometry();
-    this.pointGeo.setAttribute('position', new THREE.BufferAttribute(this.pos, 3).setUsage(THREE.DynamicDrawUsage));
-    this.pointGeo.setAttribute('color', new THREE.BufferAttribute(this.col, 3).setUsage(THREE.DynamicDrawUsage));
-    this.pointGeo.setAttribute('size', new THREE.BufferAttribute(this.size, 1).setUsage(THREE.DynamicDrawUsage));
-    this.pointGeo.setAttribute('ring', new THREE.BufferAttribute(this.ring, 1).setUsage(THREE.DynamicDrawUsage));
-    this.pointMat = new THREE.ShaderMaterial({
-      vertexShader: POINT_VERT,
-      fragmentShader: POINT_FRAG,
+    this.centers = new Float32Array(M * 3);
+    this.hang = new Float32Array(M);
+    this.bornSeen = new Float64Array(M).fill(-1);
+    this.cubes = new CubeLayer(Math.min(M * MAXB, 48000), society.cell);
+
+    this.ringPos = new Float32Array(M * 3);
+    this.ringSize = new Float32Array(M);
+    this.ringStrength = new Float32Array(M);
+    this.ringGeo = new THREE.BufferGeometry();
+    this.ringGeo.setAttribute('position', new THREE.BufferAttribute(this.ringPos, 3).setUsage(THREE.DynamicDrawUsage));
+    this.ringGeo.setAttribute('size', new THREE.BufferAttribute(this.ringSize, 1).setUsage(THREE.DynamicDrawUsage));
+    this.ringGeo.setAttribute('strength', new THREE.BufferAttribute(this.ringStrength, 1).setUsage(THREE.DynamicDrawUsage));
+    this.ringMat = new THREE.ShaderMaterial({
+      vertexShader: RING_VERT,
+      fragmentShader: RING_FRAG,
       transparent: true,
-      depthWrite: true,
+      depthWrite: false,
       uniforms: {
         uScale: { value: 1000 },
-        uMinPx: { value: 7 },
         uDpr: { value: 1 },
-        uOutline: { value: new THREE.Color(INK.outline) },
-        uGround: { value: new THREE.Color(INK.ground) },
+        uInk: { value: new THREE.Color() },
+        uGround: { value: new THREE.Color() },
         uFogNear: { value: 4 },
         uFogFar: { value: 9 },
       },
     });
-    this.points = new THREE.Points(this.pointGeo, this.pointMat);
-    this.points.frustumCulled = false;
-    this.points.renderOrder = 2;
+    this.rings = new THREE.Points(this.ringGeo, this.ringMat);
+    this.rings.frustumCulled = false;
+    this.rings.renderOrder = 3;
 
     this.lineGeo = new LineSegmentsGeometry();
     this.lineGeo.setPositions(new Float32Array(M * 6));
@@ -201,30 +203,27 @@ export class Bodies {
     this.chainMat.depthTest = false;
     this.chain = new LineSegments2(this.chainGeo, this.chainMat);
     this.chain.frustumCulled = false;
-    this.chain.renderOrder = 3;
-    this.drawIndex = new Int32Array(M).fill(-1);
+    this.chain.renderOrder = 4;
 
     const F = society.F;
-    const perCell = 1;
-    const nFood = F * F * F * perCell;
+    const nFood = F * F * F;
     const foodPos = new Float32Array(nFood * 3);
     this.foodLevel = new Float32Array(nFood);
-    let k = 0;
-    // Static jitter so the stipple doesn't read as a grid.
     let h = 2166136261;
     const rand = () => {
-      h ^= h << 13; h ^= h >>> 17; h ^= h << 5;
+      h ^= h << 13;
+      h ^= h >>> 17;
+      h ^= h << 5;
       return ((h >>> 0) % 10000) / 10000;
     };
+    let k = 0;
     for (let z = 0; z < F; z++) {
       for (let y = 0; y < F; y++) {
         for (let x = 0; x < F; x++) {
-          for (let q = 0; q < perCell; q++) {
-            foodPos[3 * k] = ((x + rand()) / F) * 2 - 1;
-            foodPos[3 * k + 1] = ((y + rand()) / F) * 2 - 1;
-            foodPos[3 * k + 2] = ((z + rand()) / F) * 2 - 1;
-            k++;
-          }
+          foodPos[3 * k] = ((x + rand()) / F) * 2 - 1;
+          foodPos[3 * k + 1] = ((y + rand()) / F) * 2 - 1;
+          foodPos[3 * k + 2] = ((z + rand()) / F) * 2 - 1;
+          k++;
         }
       }
     }
@@ -239,7 +238,8 @@ export class Bodies {
       uniforms: {
         uSize: { value: 3 },
         uScale: { value: 1000 },
-        uColor: { value: new THREE.Color(INK.food) },
+        uColor: { value: new THREE.Color() },
+        uAlpha: { value: 1 },
         uFogNear: { value: 4 },
         uFogFar: { value: 9 },
       },
@@ -248,93 +248,155 @@ export class Bodies {
     this.food.frustumCulled = false;
     this.food.renderOrder = 0;
 
-    this.group.add(this.food, this.lines, this.points, this.chain);
+    this.group.add(this.food, this.lines, this.cubes.mesh, this.rings, this.chain);
+    this.setTheme(theme);
   }
 
-  /**
-   * Pack live organisms into the draw buffers. `alpha` interpolates between the last two ticks;
-   * `appear` (0-1) scales everyone up during the lift from Cells.
-   */
-  update(alpha: number, appear: number, pixelScale: number, dpr: number): void {
+  setTheme(t: Theme): void {
+    this.fills = t.fills.map(hexToRgb);
+    this.strokes = t.strokes.map(hexToRgb);
+    this.cubes.setTheme(t);
+    this.ringMat.uniforms.uInk.value.set(t.ring ?? t.outline);
+    this.ringMat.uniforms.uGround.value.set(t.ground);
+    this.foodMat.uniforms.uColor.value.set(t.food);
+    this.foodMat.uniforms.uAlpha.value = t.foodAlpha;
+    this.lineOpacity = t.lineOpacity;
+    this.lineMat.linewidth = t.lineWidth;
+    const blending = t.additive ? THREE.AdditiveBlending : THREE.NormalBlending;
+    for (const m of [this.lineMat, this.ringMat, this.foodMat]) {
+      m.blending = blending;
+      m.needsUpdate = true;
+    }
+  }
+
+  setViewport(width: number, height: number): void {
+    this.cssWidth = width;
+    this.cssHeight = height;
+  }
+
+  /** Rebuild every body, ring and line for this frame. `alpha` interpolates between ticks. */
+  update(alpha: number, pixelScale: number, dpr: number): void {
     const s = this.society;
-    const { M, alive, pos, prev, tribe, size, lord, root, subSize, p } = s;
+    const { M, alive, pos, prev, tribe, lord, root, subSize, mass, body, born, origin, depth, p } = s;
+    const { offsets, colors, scales, capacity } = this.cubes;
+    const { hang, bornSeen } = this;
+    const cell = s.cell;
     let n = 0;
     let nl = 0;
+    let nr = 0;
+    let k = 0;
+    const lerp = (i: number, a: number) => prev[3 * i + a] + (pos[3 * i + a] - prev[3 * i + a]) * alpha;
     for (let i = 0; i < M; i++) {
       if (!alive[i]) continue;
-      const x = prev[3 * i] + (pos[3 * i] - prev[3 * i]) * alpha;
-      const y = prev[3 * i + 1] + (pos[3 * i + 1] - prev[3 * i + 1]) * alpha;
-      const z = prev[3 * i + 2] + (pos[3 * i + 2] - prev[3 * i + 2]) * alpha;
-      this.pos[3 * n] = x;
-      this.pos[3 * n + 1] = y;
-      this.pos[3 * n + 2] = z;
-      const c = this.fills[tribe[i]];
-      this.col[3 * n] = c[0];
-      this.col[3 * n + 1] = c[1];
-      this.col[3 * n + 2] = c[2];
-      const followers = Math.max(1, subSize[i]);
-      this.size[n] = 0.036 * Math.sqrt(size[i]) * (1 + 0.3 * Math.log10(followers)) * appear;
-      this.ring[n] = lord[i] < 0 && followers >= p.realmMin ? Math.min(1, 0.3 + (followers - p.realmMin) / 25) : 0;
-      this.slotOf[n] = i;
-      this.drawIndex[i] = n;
-      n++;
+      const target = HANG * Math.min(Math.max(depth[i], 0), HANG_RANKS);
+      if (bornSeen[i] !== born[i]) {
+        bornSeen[i] = born[i];
+        hang[i] = target;
+      } else {
+        hang[i] += (target - hang[i]) * HANG_EASE;
+      }
+    }
+    const drawnY = (i: number) => Math.max(FLOOR, lerp(i, 1) - hang[i]);
+    for (let i = 0; i < M; i++) {
+      if (!alive[i]) continue;
+      const cx = lerp(i, 0);
+      const cy = drawnY(i);
+      const cz = lerp(i, 2);
+      this.centers[3 * k] = cx;
+      this.centers[3 * k + 1] = cy;
+      this.centers[3 * k + 2] = cz;
+      this.slotOf[k] = i;
+      this.drawIndex[i] = k;
+      k++;
+      const age = s.tick - born[i] + alpha;
+      let sc: number;
+      if (origin[i] === 1) {
+        // Came off the lattice: start at lattice scale in place, then condense.
+        const t = Math.min(1, age / 40);
+        const e = t * t * (3 - 2 * t);
+        sc = 1 + (p.bodyScale * DRAW_SCALE - 1) * e;
+      } else {
+        sc = p.bodyScale * DRAW_SCALE * (0.55 + 0.45 * Math.min(1, age / 16));
+      }
+      const fill = this.fills[tribe[i]];
+      const base = i * MAXB * 3;
+      const unit = cell * sc;
+      const m = mass[i];
+      for (let q = 0; q < m && n < capacity; q++) {
+        offsets[3 * n] = cx + body[base + 3 * q] * unit;
+        offsets[3 * n + 1] = cy + body[base + 3 * q + 1] * unit;
+        offsets[3 * n + 2] = cz + body[base + 3 * q + 2] * unit;
+        colors[3 * n] = fill[0];
+        colors[3 * n + 1] = fill[1];
+        colors[3 * n + 2] = fill[2];
+        scales[n] = sc * 0.84;
+        n++;
+      }
       const L = lord[i];
-      if (L >= 0 && alive[L]) {
-        const lx = prev[3 * L] + (pos[3 * L] - prev[3 * L]) * alpha;
-        const ly = prev[3 * L + 1] + (pos[3 * L + 1] - prev[3 * L + 1]) * alpha;
-        const lz = prev[3 * L + 2] + (pos[3 * L + 2] - prev[3 * L + 2]) * alpha;
+      if (L < 0) {
+        const followers = subSize[i];
+        if (followers >= p.realmMin) {
+          this.ringPos[3 * nr] = cx;
+          this.ringPos[3 * nr + 1] = cy;
+          this.ringPos[3 * nr + 2] = cz;
+          this.ringSize[nr] = s.radius[i] * 3.2 * DRAW_SCALE + 0.03;
+          this.ringStrength[nr] = Math.min(1, 0.3 + (followers - p.realmMin) / 25);
+          nr++;
+        }
+      } else if (alive[L]) {
         const o = 6 * nl;
-        this.linePos[o] = x;
-        this.linePos[o + 1] = y;
-        this.linePos[o + 2] = z;
-        this.linePos[o + 3] = lx;
-        this.linePos[o + 4] = ly;
-        this.linePos[o + 5] = lz;
+        this.linePos[o] = cx;
+        this.linePos[o + 1] = cy;
+        this.linePos[o + 2] = cz;
+        this.linePos[o + 3] = lerp(L, 0);
+        this.linePos[o + 4] = drawnY(L);
+        this.linePos[o + 5] = lerp(L, 2);
         const r = root[i] >= 0 && alive[root[i]] ? root[i] : L;
-        const sc = this.strokes[tribe[r]];
-        this.lineCol[o] = this.lineCol[o + 3] = sc[0];
-        this.lineCol[o + 1] = this.lineCol[o + 4] = sc[1];
-        this.lineCol[o + 2] = this.lineCol[o + 5] = sc[2];
+        const st = this.strokes[tribe[r]];
+        this.lineCol[o] = this.lineCol[o + 3] = st[0];
+        this.lineCol[o + 1] = this.lineCol[o + 4] = st[1];
+        this.lineCol[o + 2] = this.lineCol[o + 5] = st[2];
         nl++;
       }
     }
-    this.drawn = n;
-    this.pointGeo.setDrawRange(0, n);
-    for (const name of ['position', 'color', 'size', 'ring']) this.pointGeo.getAttribute(name).needsUpdate = true;
+    this.drawn = k;
+    this.cubes.commit(n);
+
+    this.lines.visible = this.show.lines;
     this.lineGeo.instanceCount = nl;
     touch(this.lineGeo, 'instanceStart');
     touch(this.lineGeo, 'instanceColorStart');
-    this.lineMat.opacity = 0.75 * appear;
+    this.lineMat.opacity = this.lineOpacity;
 
-    this.pointMat.uniforms.uScale.value = pixelScale;
+    this.rings.visible = this.show.rings;
+    this.ringGeo.setDrawRange(0, nr);
+    for (const name of ['position', 'size', 'strength']) this.ringGeo.getAttribute(name).needsUpdate = true;
+
+    this.ringMat.uniforms.uScale.value = pixelScale;
+    this.ringMat.uniforms.uDpr.value = dpr;
+    this.foodMat.uniforms.uScale.value = pixelScale;
+    this.foodMat.uniforms.uSize.value = 2.6 * dpr;
     this.lineMat.resolution.set(this.cssWidth, this.cssHeight);
     this.chainMat.resolution.set(this.cssWidth, this.cssHeight);
-    this.pointMat.uniforms.uDpr.value = dpr;
-    this.pointMat.uniforms.uMinPx.value = 7 * dpr;
-    this.foodMat.uniforms.uScale.value = pixelScale;
-    for (const m of [this.pointMat, this.foodMat]) {
-      m.uniforms.uFogNear.value = this.fog.near;
-      m.uniforms.uFogFar.value = this.fog.far;
+    this.cubes.setFog(this.fog.near, this.fog.far);
+    for (const mat of [this.ringMat, this.foodMat]) {
+      mat.uniforms.uFogNear.value = this.fog.near;
+      mat.uniforms.uFogFar.value = this.fog.far;
     }
-    this.foodMat.uniforms.uSize.value = 2.6 * dpr;
 
-    if (this.foodFrame++ % 6 === 0) {
+    this.food.visible = this.show.food;
+    if (this.show.food && this.foodFrame++ % 6 === 0) {
       const { food, cap } = s;
-      const per = this.foodLevel.length / food.length;
-      for (let c = 0; c < food.length; c++) {
-        // Only fertile ground shows: grazed patches thin out and regrow.
-        const v = cap[c] > 0.3 ? Math.min(0.36, food[c] * 0.45) * appear : 0;
-        for (let q = 0; q < per; q++) this.foodLevel[c * per + q] = v;
-      }
+      for (let c = 0; c < food.length; c++) this.foodLevel[c] = cap[c] > 0.3 ? Math.min(0.36, food[c] * 0.45) : 0;
       this.foodGeo.getAttribute('level').needsUpdate = true;
     }
   }
 
-  /** Project drawn organisms to CSS pixels; used for hover picking and labels. */
+  /** Project drawn organisms to CSS pixels; used for hover picking. */
   project(camera: THREE.Camera, width: number, height: number): void {
     const v = new THREE.Vector3();
     for (let k = 0; k < this.drawn; k++) {
-      v.set(this.pos[3 * k], this.pos[3 * k + 1], this.pos[3 * k + 2]).project(camera);
+      v.set(this.centers[3 * k], this.centers[3 * k + 1], this.centers[3 * k + 2]).project(camera);
       this.screen[2 * k] = (v.x * 0.5 + 0.5) * width;
       this.screen[2 * k + 1] = (-v.y * 0.5 + 0.5) * height;
     }
@@ -356,16 +418,10 @@ export class Bodies {
     return best;
   }
 
-  /** World position of a slot as drawn this frame. */
   positionOf(slot: number, out: THREE.Vector3): THREE.Vector3 {
     const k = slot >= 0 ? this.drawIndex[slot] : -1;
     if (k < 0 || k >= this.drawn || this.slotOf[k] !== slot) return out.set(NaN, NaN, NaN);
-    return out.set(this.pos[3 * k], this.pos[3 * k + 1], this.pos[3 * k + 2]);
-  }
-
-  setViewport(width: number, height: number): void {
-    this.cssWidth = width;
-    this.cssHeight = height;
+    return out.set(this.centers[3 * k], this.centers[3 * k + 1], this.centers[3 * k + 2]);
   }
 
   /** Trace a slot's chain of command up to its ruler (or clear with -1). */
@@ -373,16 +429,15 @@ export class Bodies {
     const s = this.society;
     let n = 0;
     if (slot >= 0 && s.alive[slot]) {
-      const root = s.rootOf(slot);
-      const c = this.strokes[s.tribe[root]];
+      const c = this.strokes[s.tribe[s.rootOf(slot)]];
       let k = slot;
       for (let guard = 0; s.lord[k] >= 0 && n < 64 && guard < 64; guard++) {
         const a = this.drawIndex[k];
         const b = this.drawIndex[s.lord[k]];
         if (a < 0 || b < 0) break;
         for (let q = 0; q < 3; q++) {
-          this.chainPos[6 * n + q] = this.pos[3 * a + q];
-          this.chainPos[6 * n + 3 + q] = this.pos[3 * b + q];
+          this.chainPos[6 * n + q] = this.centers[3 * a + q];
+          this.chainPos[6 * n + 3 + q] = this.centers[3 * b + q];
           this.chainCol[6 * n + q] = c[q];
           this.chainCol[6 * n + 3 + q] = c[q];
         }
@@ -396,8 +451,9 @@ export class Bodies {
   }
 
   dispose(): void {
-    this.pointGeo.dispose();
-    this.pointMat.dispose();
+    this.cubes.dispose();
+    this.ringGeo.dispose();
+    this.ringMat.dispose();
     this.lineGeo.dispose();
     this.lineMat.dispose();
     this.chainGeo.dispose();

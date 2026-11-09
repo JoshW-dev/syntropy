@@ -3,6 +3,7 @@
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { INK } from './palette.ts';
+import type { Theme } from './theme.ts';
 
 export class Stage {
   readonly renderer: THREE.WebGLRenderer;
@@ -13,6 +14,8 @@ export class Stage {
   /** Pixels per world unit at distance 1, for sizing point sprites. */
   pixelScale = 1;
   private frame: THREE.LineSegments;
+  /** Floor grid for themes that ask for one; built on first use. */
+  private grid: THREE.LineSegments | null = null;
 
   constructor(canvas: HTMLCanvasElement, reducedMotion: boolean) {
     this.renderer = new THREE.WebGLRenderer({ canvas, antialias: true, powerPreference: 'high-performance' });
@@ -44,6 +47,41 @@ export class Stage {
 
     this.resize();
     window.addEventListener('resize', () => this.resize());
+  }
+
+  setTheme(t: Theme): void {
+    this.renderer.setClearColor(t.ground, 1);
+    this.fog.color.set(t.ground);
+    const m = this.frame.material as THREE.LineBasicMaterial;
+    m.color.set(t.frame);
+    m.opacity = t.frameOpacity;
+    if (t.grid) {
+      this.grid ??= this.makeGrid();
+      const g = this.grid.material as THREE.LineBasicMaterial;
+      g.color.set(t.grid.color);
+      g.opacity = t.grid.opacity;
+      this.grid.visible = true;
+    } else if (this.grid) {
+      this.grid.visible = false;
+    }
+    document.body.style.background = t.ground;
+  }
+
+  /** A 16 by 16 grid on the floor of the box, like the squares on drafting paper. */
+  private makeGrid(): THREE.LineSegments {
+    const n = 16;
+    const h = 1.01;
+    const pts: number[] = [];
+    for (let i = 0; i <= n; i++) {
+      const v = -h + (2 * h * i) / n;
+      pts.push(v, -h, -h, v, -h, h, -h, -h, v, h, -h, v);
+    }
+    const geo = new THREE.BufferGeometry();
+    geo.setAttribute('position', new THREE.Float32BufferAttribute(pts, 3));
+    const grid = new THREE.LineSegments(geo, new THREE.LineBasicMaterial({ transparent: true, depthWrite: false, fog: true }));
+    grid.renderOrder = -1;
+    this.scene.add(grid);
+    return grid;
   }
 
   resize(): void {

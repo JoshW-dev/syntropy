@@ -20,6 +20,18 @@
   --control: #777777;
   --press: rgba(0, 0, 0, 0.05);
   --press-hover: rgba(0, 0, 0, 0.08);
+  --figure: #333333;
+  --pill: #f8f8f8;
+  --tip: rgba(248, 248, 248, 0.94);
+  /* tribe strokes, for names in text; each theme replaces them */
+  --t0: #1f6aea;
+  --t1: #eb2d2d;
+  --t2: #ca9839;
+  --t3: #2f9e44;
+  --t4: #7b3fd1;
+  --t5: #d6337f;
+  /* unfilled side of a slider track */
+  --rail: color-mix(in srgb, var(--control) 22%, transparent);
   --gutter: 32px;
   --sans: 'IBM Plex Sans', 'Helvetica Neue', Arial, sans-serif;
   --display: 'Inter Variable', 'Inter', 'Helvetica Neue', Arial, sans-serif;
@@ -75,6 +87,19 @@ body {
   margin: 2px 0 0;
   font-size: 14px;
   color: var(--muted);
+}
+
+/* Text that sits over the world keeps a halo of the ground colour, so bodies behind it don't
+   break up the letters. */
+.mast,
+.ladder,
+.chronicle,
+.readout,
+.foot {
+  text-shadow:
+    0 0 2px var(--ground),
+    0 0 4px var(--ground),
+    0 0 8px var(--ground);
 }
 
 /* ---------- ladder ---------- */
@@ -235,6 +260,7 @@ body {
   position: fixed;
   top: 22px;
   right: var(--gutter);
+  z-index: 10;
   display: flex;
   align-items: center;
   gap: 8px;
@@ -303,7 +329,7 @@ body {
 }
 
 .speed button[aria-checked='true'] {
-  background: var(--ground);
+  background: var(--pill);
 }
 
 button:focus-visible,
@@ -336,7 +362,7 @@ a:focus-visible {
 .readout dd {
   margin: 0;
   font: 400 19px/26px var(--sans);
-  color: #333333;
+  color: var(--figure);
   font-variant-numeric: tabular-nums;
 }
 
@@ -373,7 +399,7 @@ a:focus-visible {
   top: 0;
   padding: 8px 10px;
   border-radius: 6px;
-  background: rgba(248, 248, 248, 0.94);
+  background: var(--tip);
   font-size: 13px;
   line-height: 1.5;
   pointer-events: none;
@@ -398,6 +424,11 @@ a:focus-visible {
   pointer-events: none;
 }
 
+.foot .links {
+  display: flex;
+  gap: 18px;
+}
+
 .foot a {
   color: var(--muted);
   text-decoration: underline;
@@ -418,6 +449,472 @@ a:focus-visible {
   margin: 0;
   text-align: center;
   color: var(--text);
+}
+
+/* ---------- look and environment buttons ---------- */
+
+/* Words on wide screens, an icon once the row gets tight. */
+.btn.duo .ico {
+  display: none;
+}
+
+.btn.duo[aria-expanded='true'] {
+  background: var(--press-hover);
+}
+
+.btn:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
+.btn:disabled:hover {
+  background: var(--press);
+}
+
+.look {
+  position: relative;
+}
+
+/* ---------- look popover ---------- */
+
+.pop {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  width: 236px;
+  padding: 6px;
+  border: 1px solid var(--trough);
+  border-radius: 10px;
+  background: var(--ground);
+  color: var(--text);
+  animation: pop-in 0.15s ease-out;
+}
+
+.pop[hidden] {
+  display: none;
+}
+
+@keyframes pop-in {
+  from {
+    opacity: 0;
+  }
+}
+
+.pop-group + .pop-group {
+  margin-top: 6px;
+  padding-top: 6px;
+  border-top: 1px solid var(--trough);
+}
+
+.pop-h {
+  margin: 2px 8px;
+  font-size: 12px;
+  line-height: 20px;
+  color: var(--muted);
+}
+
+.opt,
+.check,
+.pop-row {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  min-height: 36px;
+  padding: 0 8px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text);
+  font: 400 14px/1.2 var(--sans);
+  text-align: left;
+  cursor: pointer;
+}
+
+.opt:hover,
+.check:hover,
+.pop-row:hover {
+  background: var(--press);
+}
+
+/* The real inputs stay focusable but unseen; the row draws their state. */
+.opt input,
+.check input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: 0;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.opt:has(input:checked) {
+  background: var(--press);
+  color: var(--heading);
+  font-weight: 500;
+}
+
+.opt:has(input:focus-visible),
+.check:has(input:focus-visible) {
+  outline: 2px solid var(--ink);
+  outline-offset: -2px;
+}
+
+/* a swatch: the look's ground with three of its tribe colours */
+.sw {
+  display: flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  width: 34px;
+  height: 22px;
+  border-radius: 5px;
+  box-shadow: inset 0 0 0 1px rgba(128, 128, 128, 0.4);
+}
+
+.sw i {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+}
+
+.tick {
+  flex: none;
+  margin-left: auto;
+  color: var(--ink);
+  visibility: hidden;
+}
+
+.opt:has(input:checked) .tick {
+  visibility: visible;
+}
+
+.box {
+  position: relative;
+  flex: none;
+  width: 16px;
+  height: 16px;
+  border: 1.5px solid var(--ink);
+  border-radius: 4px;
+}
+
+.check input:checked + .box {
+  background: var(--ink);
+}
+
+.check input:checked + .box::after {
+  content: '';
+  position: absolute;
+  left: 4px;
+  top: 1px;
+  width: 4px;
+  height: 8px;
+  border: solid var(--ground);
+  border-width: 0 1.6px 1.6px 0;
+  transform: rotate(45deg);
+}
+
+.pop-row kbd {
+  margin-left: auto;
+  padding: 3px 6px;
+  border: 1px solid var(--trough);
+  border-radius: 4px;
+  font: 500 11px/1 var(--sans);
+  color: var(--muted);
+}
+
+/* ---------- environment panel ---------- */
+
+/* It hangs below the controls row, so pause, speed and Share stay in reach while tuning. */
+.env {
+  position: fixed;
+  top: 88px;
+  right: 0;
+  bottom: 0;
+  z-index: 30;
+  width: 360px;
+  max-width: 100%;
+  padding: 4px 24px 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  border-left: 1px solid var(--trough);
+  background: var(--ground);
+  transform: translateX(100%);
+  visibility: hidden;
+  transition:
+    transform 0.3s cubic-bezier(0.2, 0.7, 0.2, 1),
+    visibility 0s linear 0.3s;
+}
+
+.env.open {
+  transform: none;
+  visibility: visible;
+  transition: transform 0.3s cubic-bezier(0.2, 0.7, 0.2, 1);
+}
+
+.env-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.env-head h2 {
+  margin: 0;
+  font: 600 19px/1.2 var(--display);
+  color: var(--heading);
+}
+
+.env-note {
+  margin: 6px 0 0;
+  font-size: 13px;
+  line-height: 1.45;
+  color: var(--muted);
+}
+
+.knob {
+  margin-top: 10px;
+}
+
+.knob-top {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.knob label {
+  font-size: 14px;
+  color: var(--text);
+}
+
+.knob output {
+  font-size: 14px;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.knob.changed output {
+  color: var(--figure);
+  font-weight: 500;
+}
+
+.knob-key {
+  display: block;
+  font: 11.5px/1.3 ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+  color: var(--muted);
+}
+
+.knob-note {
+  margin-left: 8px;
+  font: 12px/1.3 var(--sans);
+}
+
+.knob-track {
+  position: relative;
+  z-index: 0;
+}
+
+/* a tick across the track where the default sits; the knob covers it until moved */
+.knob-def {
+  position: absolute;
+  top: calc(50% - 6px);
+  left: calc(10px + (100% - 20px) * var(--def));
+  z-index: -1;
+  width: 1.5px;
+  height: 12px;
+  border-radius: 1px;
+  background: var(--control);
+}
+
+.knob input[type='range'] {
+  display: block;
+  width: 100%;
+  height: 24px;
+  margin: 0;
+  background: transparent;
+  cursor: grab;
+  -webkit-appearance: none;
+  appearance: none;
+}
+
+.knob input[type='range']:active {
+  cursor: grabbing;
+}
+
+.knob input[type='range']::-webkit-slider-runnable-track {
+  height: 4px;
+  border-radius: 2px;
+  background: linear-gradient(to right, var(--control) var(--fill, 0%), var(--rail) var(--fill, 0%));
+}
+
+.knob input[type='range']::-webkit-slider-thumb {
+  width: 20px;
+  height: 20px;
+  margin-top: -8px;
+  border: 0;
+  border-radius: 50%;
+  background: var(--control);
+  -webkit-appearance: none;
+  appearance: none;
+}
+
+.knob input[type='range']::-moz-range-track {
+  height: 4px;
+  border-radius: 2px;
+  background: var(--rail);
+}
+
+.knob input[type='range']::-moz-range-progress {
+  height: 4px;
+  border-radius: 2px;
+  background: var(--control);
+}
+
+.knob input[type='range']::-moz-range-thumb {
+  width: 20px;
+  height: 20px;
+  border: 0;
+  border-radius: 50%;
+  background: var(--control);
+}
+
+.knob input[type='range']:focus-visible {
+  outline: none;
+}
+
+.knob input[type='range']:focus-visible::-webkit-slider-thumb {
+  outline: 2px solid var(--ink);
+  outline-offset: 2px;
+}
+
+.knob input[type='range']:focus-visible::-moz-range-thumb {
+  outline: 2px solid var(--ink);
+  outline-offset: 2px;
+}
+
+/* the actions stay in view while the sliders scroll under them */
+.env-actions {
+  position: sticky;
+  bottom: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  margin: 12px -24px 0;
+  padding: 10px 24px calc(6px + env(safe-area-inset-bottom));
+  border-top: 1px solid var(--trough);
+  background: var(--ground);
+}
+
+.env-actions .btn {
+  width: 100%;
+}
+
+.text-btn {
+  height: 32px;
+  padding: 0 8px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--ink);
+  font: 400 13px/1 var(--sans);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  cursor: pointer;
+}
+
+.text-btn:hover {
+  background: var(--press);
+}
+
+.text-btn:disabled {
+  color: var(--muted);
+  text-decoration: none;
+  cursor: default;
+}
+
+.text-btn:disabled:hover {
+  background: transparent;
+}
+
+/* ---------- hiding the UI ---------- */
+
+.mast,
+.ladder,
+.chronicle,
+.controls,
+.readout,
+.labels,
+.foot {
+  transition:
+    opacity 0.25s ease,
+    visibility 0.25s;
+}
+
+.ui-hidden :is(.mast, .ladder, .chronicle, .controls, .readout, .labels, .tip, .foot, .env) {
+  opacity: 0;
+  visibility: hidden;
+}
+
+.no-chronicle .chronicle {
+  display: none;
+}
+
+/* the one thing left when the UI is hidden: small and quiet until pointed at */
+.show-ui {
+  position: fixed;
+  top: 28px;
+  right: var(--gutter);
+  z-index: 40;
+  height: 32px;
+  padding: 0 10px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--muted);
+  font: 500 13px/1 var(--sans);
+  opacity: 0.6;
+  cursor: pointer;
+}
+
+.show-ui:hover,
+.show-ui:focus-visible {
+  opacity: 1;
+  background: var(--press);
+}
+
+.show-ui[hidden] {
+  display: none;
+}
+
+.sr {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+/* ---------- mid-width: the row shrinks to icons before it meets the title ---------- */
+
+@media (max-width: 900px) {
+  .btn.duo {
+    width: 44px;
+    padding: 0;
+    display: grid;
+    place-items: center;
+  }
+
+  .btn.duo .txt {
+    display: none;
+  }
+
+  .btn.duo .ico {
+    display: block;
+  }
 }
 
 /* ---------- small screens ---------- */
@@ -469,6 +966,80 @@ a:focus-visible {
 
   #share {
     display: none;
+  }
+
+  .btn.duo {
+    width: 40px;
+  }
+
+  .pop {
+    position: fixed;
+    top: auto;
+    left: var(--gutter);
+    right: var(--gutter);
+    bottom: 92px;
+    width: auto;
+  }
+
+  .pop-list {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    column-gap: 4px;
+  }
+
+  .env {
+    top: auto;
+    left: 0;
+    width: auto;
+    max-height: min(74vh, 640px);
+    padding: 10px 16px 0;
+    border-left: 0;
+    border-top: 1px solid var(--trough);
+    border-radius: 14px 14px 0 0;
+    transform: translateY(100%);
+  }
+
+  .env.open {
+    transform: none;
+  }
+
+  .knob {
+    margin-top: 12px;
+  }
+
+  .env-actions {
+    margin: 12px -16px 0;
+    padding-left: 16px;
+    padding-right: 16px;
+  }
+
+  /* no keyboard to press it on */
+  .pop-row kbd {
+    display: none;
+  }
+
+  .knob input[type='range'] {
+    height: 36px;
+  }
+
+  .knob input[type='range']::-webkit-slider-thumb {
+    width: 24px;
+    height: 24px;
+    margin-top: -10px;
+  }
+
+  .knob input[type='range']::-moz-range-thumb {
+    width: 24px;
+    height: 24px;
+  }
+
+  .knob-def {
+    left: calc(12px + (100% - 24px) * var(--def));
+  }
+
+  .show-ui {
+    top: auto;
+    bottom: 44px;
   }
 
   /* On a phone the ladder shows only the current level, as "Level N of 5". */
@@ -556,9 +1127,39 @@ a:focus-visible {
   }
 }
 
+/* the shortest phones: "New world" becomes "New", and the row tightens */
+@media (max-width: 420px) {
+  .wide {
+    display: none;
+  }
+}
+
+@media (max-width: 370px) {
+  .controls {
+    gap: 4px;
+  }
+
+  .speed button {
+    min-width: 30px;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .step[data-state='now'] .mark::after,
-  .ev {
+  .ev,
+  .pop {
     animation: none;
+  }
+
+  .env,
+  .env.open,
+  .mast,
+  .ladder,
+  .chronicle,
+  .controls,
+  .readout,
+  .labels,
+  .foot {
+    transition: none;
   }
 }
