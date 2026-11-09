@@ -7,16 +7,23 @@ import { makeRng } from './rng.ts';
 
 export const LADDER = ['Cells', 'Organisms', 'Tribes', 'Hierarchy', 'Government'] as const;
 
-/** Each form that holds together becomes one founding organism, at the same place. */
-export function foundersFrom(cells: CellsWorld): Founder[] {
+/**
+ * Each form that held its shape becomes one founding organism, at the same place. Forms that
+ * were still churning are left behind (unless too few held, then every form crosses over).
+ * `label` is the form's index in cells.forms, for the lift animation.
+ */
+export function foundersFrom(cells: CellsWorld): (Founder & { label: number })[] {
   const G = cells.G;
-  const forms = cells.forms.filter((f) => f.cells >= cells.p.minForm);
-  return forms.map((f) => ({
+  const all = cells.forms.map((f, label) => ({ f, label })).filter(({ f }) => f.cells >= cells.p.minForm);
+  const held = all.filter(({ f }) => f.age >= cells.p.holdGens);
+  const chosen = held.length >= 12 ? held : all;
+  return chosen.map(({ f, label }) => ({
     x: (f.x / G) * 2 - 1,
     y: (f.y / G) * 2 - 1,
     z: (f.z / G) * 2 - 1,
     size: 0.55 + 0.18 * Math.cbrt(f.cells),
     tribe: f.lineage,
+    label,
   }));
 }
 

@@ -171,7 +171,8 @@ export class Voxels {
         this.scales[k] = 0;
         continue;
       }
-      const label = world.formOf[this.cellOfInstance[k]];
+      const form = world.formOf[this.cellOfInstance[k]];
+      const label = form >= 0 && !Number.isNaN(targets[3 * form]) ? form : -1;
       const hx = this.homes[3 * k];
       const hy = this.homes[3 * k + 1];
       const hz = this.homes[3 * k + 2];

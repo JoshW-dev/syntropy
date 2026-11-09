@@ -13,7 +13,7 @@ The rules only say what one organism does next to its neighbours. Each rung of t
 | Level | What runs | Reached when |
 | --- | --- | --- |
 | 1. Cells | 3D Life on a 48³ lattice: a dead cell with 7 or 8 live neighbours is born, a live cell with 1 to 5 survives. Newborns take the most common lineage around them. | 56 forms hold their shape for 20 generations |
-| 2. Organisms | Each form becomes one body at the same spot. Bodies eat from a food field that regrows, move, split when they're rich, and age. | The forms become bodies |
+| 2. Organisms | Each form that held becomes one body at the same spot, and the forms that didn't fade. Bodies eat from a food field that regrows, move, split when they're rich, and age. | The held forms become bodies |
 | 3. Tribes | A newborn follows its parent. A ruler or a loner bows to a much stronger kin polity nearby, sooner when foreigners crowd it. | 3 kin groups of 12+ follow chiefs |
 | 4. Hierarchy | Members of two polities that touch can fight. Local numbers decide, and a clear winner takes the loser (and everyone below it) as followers. Followers pay tribute upward and get fed when they starve. A lord manages 4 followers directly, so newcomers are handed down the tree. | One realm of 40+ rules 2 tribes through 5 ranks |
 | 5. Government | A follower whose branch outgrows the rest of the realm may break away or take the throne. When a ruler dies, the strongest follower inherits, and the others stay only if the heir is clearly stronger. | A realm of 40+ outlives its ruler and keeps 60% of its members |
@@ -63,7 +63,7 @@ npm run url -- tuning/best.json --base http://localhost:5173
 
 ### How consistent it is
 
-I checked the defaults on 32 seeds, 16 from the search and 16 it never saw, each run for 150 to 190 years. 31 of the 32 worlds reached all five levels. The median world had a multi-tribe hierarchy by year 20 to 26 and a government by year 32 to 40, with 10 to 11 major realms (15+ members) holding 71% of the population and 2 to 3 rebellions or coups per 10 years. The one miss (seed `c4`) was a peaceful world with 19 fights in 188 years, so no realm ever ruled a second tribe, even though single-tribe kingdoms grew to 64 members and 9 ranks.
+I checked the defaults on 32 seeds, 16 from the search and 16 it never saw, each run for 150 to 190 years. 31 of the 32 worlds reached all five levels. The median world had a multi-tribe hierarchy by year 20 to 38 and a government by year 29 to 80, with 10 to 11 major realms (15+ members) holding 70% of the population and 2 to 3 rebellions or coups per 10 years. The one miss (seed `s13`) had 25 conquests, but no realm ever held two tribes, 40 members and 5 ranks at the same time.
 
 ## Running it
 

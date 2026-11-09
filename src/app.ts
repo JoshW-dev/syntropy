@@ -26,7 +26,7 @@ function steps(p: WorldParams): Step[] {
   const list = (xs: number[]) => (xs.length === 2 ? `${xs[0]} or ${xs[1]}` : `${xs[0]} to ${xs[xs.length - 1]}`);
   return [
     { name: LADDER[0], rule: `A dead cell with ${list(c.birth)} live neighbours is born. A live cell with ${list(c.survive)} survives.`, done: `Reached when ${c.targetForms} forms hold their shape for ${c.holdGens} generations.` },
-    { name: LADDER[1], rule: 'Each form that holds together becomes one body. Bodies eat, move, split and age.', done: 'Reached when the forms become bodies.' },
+    { name: LADDER[1], rule: 'Each form that held together becomes one body. Bodies eat, move, split and age.', done: 'Reached when the forms that held become bodies.' },
     { name: LADDER[2], rule: 'A newborn follows its parent. Kin bow to much stronger kin. A ring marks each chief.', done: `Reached when ${s.tribeCount} kin groups of ${s.tribeMin}+ follow chiefs.` },
     { name: LADDER[3], rule: "Winners take losers as followers, and tribute flows up. Followers hang below their lord on a line in the ruler's colour.", done: `Reached when a realm of ${s.hierSize}+ rules ${s.hierTribes} tribes through ${s.hierDepth + 1} ranks.` },
     { name: LADDER[4], rule: 'When a ruler dies, the strongest follower inherits. The others stay only if the heir is clearly stronger.', done: `Reached when a realm of ${s.govSize}+ outlives its ruler.` },
@@ -228,17 +228,19 @@ export class App {
     this.society.levels[1] = 0;
     this.bodies = new Bodies(this.society, this.stage.fog);
     this.stage.scene.add(this.bodies.group);
-    this.liftTargets = new Float32Array(founders.length * 3);
-    founders.forEach((f, k) => {
-      this.liftTargets[3 * k] = Math.max(-0.95, Math.min(0.95, f.x));
-      this.liftTargets[3 * k + 1] = Math.max(-0.95, Math.min(0.95, f.y));
-      this.liftTargets[3 * k + 2] = Math.max(-0.95, Math.min(0.95, f.z));
-    });
+    // Cells of a form that held flow into its organism; cells of the rest shrink where they are.
+    this.liftTargets = new Float32Array(this.cells.forms.length * 3).fill(NaN);
+    for (const f of founders) {
+      this.liftTargets[3 * f.label] = Math.max(-0.95, Math.min(0.95, f.x));
+      this.liftTargets[3 * f.label + 1] = Math.max(-0.95, Math.min(0.95, f.y));
+      this.liftTargets[3 * f.label + 2] = Math.max(-0.95, Math.min(0.95, f.z));
+    }
     if (this.cellsReachedGen < 0) this.cellsReachedGen = this.cells.generation;
     this.phase = 'lift';
     this.phaseT = 0;
     this.hud.setSkippable(false);
-    this.hud.push('year 0', `The forms become ${founders.length} organisms.`, 'level');
+    const left = this.cells.forms.length - founders.length;
+    this.hud.push('year 0', `The ${founders.length} forms that held become organisms${left > 0 ? `; ${left} that didn't fade` : ''}.`, 'level');
   }
 
   private drainEvents(): void {
@@ -327,7 +329,7 @@ export class App {
       ['Organisms', s.count.toLocaleString()],
       ['Realms', String(major.length)],
       ['Largest', top ? `${top.name} ${top.size}` : 'none'],
-      ['Deepest chain', `${Math.max(0, ...major.map((r) => r.depth)) + 1} ranks`],
+      ['Deepest chain', ((n) => `${n} rank${n === 1 ? '' : 's'}`)(Math.max(0, ...major.map((r) => r.depth)) + 1)],
     ]);
   }
 }

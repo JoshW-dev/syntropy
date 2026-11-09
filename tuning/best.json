@@ -1,5 +1,5 @@
 {
-  "note": "sweep check-defaults: score 7.94, tribes 100%, hierarchy  94%, government  94% on 16 fresh seeds",
+  "note": "sweep check-held: score 8.45, tribes 100%, hierarchy 100%, government 100% on 16 fresh seeds",
   "society": {
     "fightChance": 0.0386,
     "kinPeace": 0.13,
