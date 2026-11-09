@@ -1,0 +1,553 @@
+/* Paper and ink, per docs/taste/ciechanow.ski.md: one #F8F8F8 ground with no panels, borders or
+   shadows; gray controls; colour spent only on the bodies and on the words that name them. */
+
+@font-face {
+  font-family: 'Inter Variable';
+  font-style: normal;
+  font-display: swap;
+  font-weight: 100 900;
+  src: url('../node_modules/@fontsource-variable/inter/files/inter-latin-wght-normal.woff2') format('woff2-variations');
+}
+
+:root {
+  --ground: #f8f8f8;
+  --text: #444444;
+  --heading: #535353;
+  --muted: #aaaaaa;
+  --faint: #cccccc;
+  --ink: #555555;
+  --trough: #dddddd;
+  --control: #777777;
+  --press: rgba(0, 0, 0, 0.05);
+  --press-hover: rgba(0, 0, 0, 0.08);
+  --gutter: 32px;
+  --sans: 'IBM Plex Sans', 'Helvetica Neue', Arial, sans-serif;
+  --display: 'Inter Variable', 'Inter', 'Helvetica Neue', Arial, sans-serif;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  height: 100%;
+  overflow: hidden;
+  background: var(--ground);
+  color: var(--text);
+  font: 15px/1.5 var(--sans);
+  -webkit-font-smoothing: antialiased;
+  -webkit-tap-highlight-color: transparent;
+}
+
+#scene {
+  position: fixed;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  display: block;
+  touch-action: none;
+  cursor: grab;
+}
+
+#scene:active {
+  cursor: grabbing;
+}
+
+/* ---------- masthead ---------- */
+
+.mast {
+  position: fixed;
+  top: 26px;
+  left: var(--gutter);
+  pointer-events: none;
+}
+
+.mast h1 {
+  margin: 0;
+  font: 600 26px/1.15 var(--display);
+  letter-spacing: -0.01em;
+  color: var(--heading);
+}
+
+.mast p {
+  margin: 2px 0 0;
+  font-size: 14px;
+  color: var(--muted);
+}
+
+/* ---------- ladder ---------- */
+
+.ladder {
+  position: fixed;
+  top: 112px;
+  left: var(--gutter);
+  width: 300px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  pointer-events: none;
+}
+
+.step {
+  position: relative;
+  display: grid;
+  grid-template-columns: 14px 1fr;
+  column-gap: 14px;
+  padding-bottom: 14px;
+  transition: opacity 0.4s;
+}
+
+/* the hairline that joins the rungs */
+.step:not(:last-child)::before {
+  content: '';
+  position: absolute;
+  left: 6.5px;
+  top: 17px;
+  bottom: -3px;
+  width: 1px;
+  background: var(--faint);
+}
+
+.mark {
+  width: 14px;
+  height: 14px;
+  margin-top: 3px;
+  border: 1.5px solid var(--ink);
+  border-radius: 50%;
+  background: var(--ground);
+  position: relative;
+  z-index: 1;
+  transition: background 0.4s;
+}
+
+.step[data-state='done'] .mark {
+  background: var(--ink);
+}
+
+.step[data-state='now'] .mark::after {
+  content: '';
+  position: absolute;
+  inset: 3px;
+  border-radius: 50%;
+  background: var(--ink);
+  animation: breathe 2.4s ease-in-out infinite;
+}
+
+@keyframes breathe {
+  50% {
+    transform: scale(0.45);
+  }
+}
+
+.step[data-state='next'] {
+  opacity: 0.35;
+}
+
+.head {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+
+.num {
+  font: 500 12px/1 var(--sans);
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.name {
+  font: 600 16px/1.4 var(--display);
+  color: var(--heading);
+}
+
+.when {
+  margin-left: 2px;
+  font-size: 13px;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.rule,
+.crit {
+  margin: 2px 0 0;
+  font-size: 14px;
+  line-height: 1.45;
+  display: none;
+}
+
+.crit {
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.step[data-state='now'] .rule,
+.step[data-state='now'] .crit {
+  display: block;
+}
+
+/* ---------- chronicle ---------- */
+
+.chronicle {
+  position: fixed;
+  left: var(--gutter);
+  bottom: 52px;
+  width: min(440px, calc(100vw - 2 * var(--gutter)));
+  pointer-events: none;
+}
+
+.ev {
+  margin: 6px 0 0;
+  font-size: 14px;
+  line-height: 1.45;
+  transition: opacity 0.6s;
+  animation: arrive 0.5s ease-out;
+}
+
+.ev b {
+  font-weight: 500;
+}
+
+.ev-level {
+  color: var(--heading);
+  font-weight: 500;
+}
+
+.yr {
+  display: inline-block;
+  min-width: 4.6em;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+  font-weight: 400;
+}
+
+@keyframes arrive {
+  from {
+    transform: translateY(6px);
+    opacity: 0;
+  }
+}
+
+/* ---------- controls ---------- */
+
+.controls {
+  position: fixed;
+  top: 22px;
+  right: var(--gutter);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.btn {
+  height: 44px;
+  padding: 0 14px;
+  border: 0;
+  border-radius: 6px;
+  background: var(--press);
+  color: var(--ink);
+  font: 500 14px/1 var(--sans);
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.btn:hover {
+  background: var(--press-hover);
+}
+
+.btn.icon {
+  width: 44px;
+  padding: 0;
+  display: grid;
+  place-items: center;
+}
+
+.btn svg {
+  fill: var(--ink);
+}
+
+.btn .g-play {
+  display: none;
+}
+
+.btn.paused .g-pause {
+  display: none;
+}
+
+.btn.paused .g-play {
+  display: inline;
+}
+
+.btn[hidden] {
+  display: none;
+}
+
+.speed {
+  display: flex;
+  height: 44px;
+  padding: 2px;
+  border-radius: 10px;
+  background: var(--trough);
+}
+
+.speed button {
+  min-width: 44px;
+  border: 0;
+  border-radius: 7px;
+  background: transparent;
+  color: var(--ink);
+  font: 500 14px/1 var(--sans);
+  font-variant-numeric: tabular-nums;
+  cursor: pointer;
+}
+
+.speed button[aria-checked='true'] {
+  background: var(--ground);
+}
+
+button:focus-visible,
+a:focus-visible {
+  outline: 2px solid var(--ink);
+  outline-offset: 2px;
+}
+
+/* ---------- readout ---------- */
+
+.readout {
+  position: fixed;
+  right: var(--gutter);
+  bottom: 52px;
+  margin: 0;
+  display: grid;
+  grid-template-columns: auto auto;
+  column-gap: 16px;
+  row-gap: 2px;
+  text-align: right;
+  pointer-events: none;
+}
+
+.readout dt {
+  font-size: 13px;
+  line-height: 26px;
+  color: var(--muted);
+}
+
+.readout dd {
+  margin: 0;
+  font: 400 19px/26px var(--sans);
+  color: #333333;
+  font-variant-numeric: tabular-nums;
+}
+
+/* ---------- labels and tip ---------- */
+
+.labels {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  overflow: hidden;
+}
+
+.label {
+  position: absolute;
+  left: 0;
+  top: 0;
+  font-size: 13px;
+  white-space: nowrap;
+  color: var(--muted);
+  text-shadow:
+    0 0 3px var(--ground),
+    0 0 3px var(--ground),
+    0 0 6px var(--ground);
+  will-change: transform;
+}
+
+.label b {
+  font-weight: 500;
+}
+
+.tip {
+  position: fixed;
+  left: 0;
+  top: 0;
+  padding: 8px 10px;
+  border-radius: 6px;
+  background: rgba(248, 248, 248, 0.94);
+  font-size: 13px;
+  line-height: 1.5;
+  pointer-events: none;
+  max-width: 280px;
+}
+
+.tip b {
+  font-weight: 500;
+}
+
+/* ---------- footer ---------- */
+
+.foot {
+  position: fixed;
+  left: var(--gutter);
+  right: var(--gutter);
+  bottom: 18px;
+  display: flex;
+  justify-content: space-between;
+  font-size: 13px;
+  color: var(--muted);
+  pointer-events: none;
+}
+
+.foot a {
+  color: var(--muted);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  pointer-events: auto;
+}
+
+.foot a:hover {
+  color: var(--ink);
+}
+
+/* ---------- small screens ---------- */
+
+@media (max-width: 760px) {
+  :root {
+    --gutter: 16px;
+  }
+
+  .mast {
+    top: 14px;
+  }
+
+  .mast h1 {
+    font-size: 21px;
+  }
+
+  .mast p {
+    display: none;
+  }
+
+  .controls {
+    top: auto;
+    bottom: 40px;
+    left: var(--gutter);
+    right: var(--gutter);
+    justify-content: space-between;
+    gap: 6px;
+  }
+
+  .btn {
+    height: 40px;
+    padding: 0 10px;
+    font-size: 13px;
+  }
+
+  .btn.icon {
+    width: 40px;
+  }
+
+  .speed {
+    height: 40px;
+  }
+
+  .speed button {
+    min-width: 34px;
+    font-size: 13px;
+  }
+
+  #share {
+    display: none;
+  }
+
+  /* On a phone the ladder shows only the current level, as "Level N of 5". */
+  .ladder {
+    top: 48px;
+    width: auto;
+    right: var(--gutter);
+  }
+
+  .step {
+    display: none;
+    padding-bottom: 0;
+  }
+
+  .step::before {
+    display: none;
+  }
+
+  .step[data-state='now'] {
+    display: grid;
+    grid-template-columns: 12px 1fr;
+    column-gap: 10px;
+  }
+
+  .step[data-state='now'] .mark {
+    width: 12px;
+    height: 12px;
+    margin-top: 4px;
+  }
+
+  .num::before {
+    content: 'Level ';
+  }
+
+  .num::after {
+    content: ' of 5';
+  }
+
+  .step .when,
+  .step .crit {
+    display: none !important;
+  }
+
+  .name {
+    font-size: 15px;
+  }
+
+  .rule {
+    font-size: 13px;
+  }
+
+  .chronicle {
+    bottom: 92px;
+  }
+
+  .ev:not(:nth-last-child(-n + 2)) {
+    display: none;
+  }
+
+  .readout {
+    top: 12px;
+    bottom: auto;
+    column-gap: 8px;
+    row-gap: 0;
+  }
+
+  .readout dt:nth-of-type(n + 3),
+  .readout dd:nth-of-type(n + 3) {
+    display: none;
+  }
+
+  .readout dt {
+    font-size: 12px;
+    line-height: 20px;
+  }
+
+  .readout dd {
+    font-size: 14px;
+    line-height: 20px;
+  }
+
+  .foot {
+    bottom: 12px;
+    font-size: 12px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .step[data-state='now'] .mark::after,
+  .ev {
+    animation: none;
+  }
+}

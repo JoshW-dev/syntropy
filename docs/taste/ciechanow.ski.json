@@ -1,0 +1,116 @@
+{
+  "source": "https://ciechanow.ski/gears/",
+  "tokens": {
+    "spacing": {
+      "scale": [7.2, 13.44, 21.6, 24, 25, 32, 34.08, 36.8, 48],
+      "base_unit": null
+    },
+    "typography": {
+      "families": ["IBM Plex Sans", "Inter"],
+      "scale": [
+        { "role": "site-title", "size": "44.8px", "weight": "600", "family": "Inter" },
+        { "role": "post-title", "size": "38.4px", "weight": "600", "family": "Inter" },
+        { "role": "canvas-readout-large", "size": "32.48px", "weight": "400", "family": "IBM Plex Sans" },
+        { "role": "section-heading", "size": "28.8px", "weight": "600", "family": "Inter" },
+        { "role": "equation", "size": "22.72px", "weight": "500", "family": "IBM Plex Sans" },
+        { "role": "segmented-control-label", "size": "20px", "weight": "500", "family": "IBM Plex Sans" },
+        { "role": "body", "size": "19.2px", "weight": "400", "family": "IBM Plex Sans" },
+        { "role": "canvas-label", "size": "19px", "weight": "400", "family": "IBM Plex Sans" },
+        { "role": "canvas-variable", "size": "17.4px-19px", "weight": "500", "family": "IBM Plex Sans" },
+        { "role": "nav-and-date", "size": "16px", "weight": "400", "family": "IBM Plex Sans" },
+        { "role": "footer", "size": "14.4px", "weight": "400", "family": "IBM Plex Sans" },
+        { "role": "equation-subscript", "size": "13.632px", "weight": "500", "family": "IBM Plex Sans" },
+        { "role": "canvas-subscript", "size": "11px-11.5px", "weight": "500", "family": "IBM Plex Sans" }
+      ]
+    },
+    "colors": [
+      { "role": "background", "value": "#F8F8F8" },
+      { "role": "banner", "value": "#2052BB" },
+      { "role": "text-primary", "value": "#444444" },
+      { "role": "text-heading", "value": "#535353" },
+      { "role": "text-meta", "value": "#AAAAAA" },
+      { "role": "text-footer", "value": "#CCCCCC" },
+      { "role": "text-on-banner", "value": "#F8F8F8" },
+      { "role": "link-outbound", "value": "#0181EB" },
+      { "role": "link-figure-action", "value": "#CA9839" },
+      { "role": "figure-outline", "value": "#555555" },
+      { "role": "figure-hub", "value": "#888888" },
+      { "role": "figure-fill-yellow", "value": "#FCD561" },
+      { "role": "figure-fill-red", "value": "#D45E5E" },
+      { "role": "figure-fill-blue", "value": "#5EAAD4" },
+      { "role": "figure-fill-green", "value": "#78AD6C" },
+      { "role": "figure-fill-neutral", "value": "#DDDDDD" },
+      { "role": "emphasis-stroke-blue", "value": "#1F6AEA" },
+      { "role": "emphasis-stroke-red", "value": "#EB2D2D" },
+      { "role": "emphasis-stroke-green", "value": "#39C085" },
+      { "role": "emphasis-stroke-red-light", "value": "#F74D4D" },
+      { "role": "canvas-label", "value": "#333333" },
+      { "role": "canvas-label-active", "value": "#000000" },
+      { "role": "control-knob-and-filled-track", "value": "#777777" },
+      { "role": "control-track-unfilled", "value": "rgba(119,119,119,0.2)" },
+      { "role": "control-button-ground", "value": "rgba(0,0,0,0.05)" },
+      { "role": "segmented-trough", "value": "#DDDDDD" },
+      { "role": "segmented-selected", "value": "#F8F8F8" }
+    ],
+    "radius": ["2px", "6px", "7px", "10px", "20px"],
+    "shadows": [],
+    "image_ratios": [
+      { "usage": "full-measure canvas figure (704x352)", "ratio": "2:1" },
+      { "usage": "full-measure tall canvas figure (704x528)", "ratio": "4:3" },
+      { "usage": "opening gear-train canvas (500x270)", "ratio": "1.85:1" },
+      { "usage": "single-object canvas (280x280, 350x350)", "ratio": "1:1" },
+      { "usage": "upright-object canvas (350x368)", "ratio": "0.95:1" }
+    ],
+    "grid": { "max_width": "704px", "columns": 1, "gutter": "48px" }
+  },
+  "taste": [
+    {
+      "name": "Frameless figures",
+      "trigger": "When the designer placed 30 interactive canvases, 250 to 704px wide, in a 33,356px essay",
+      "decision": "Chose transparent canvases drawn straight onto the #F8F8F8 page ground, with no border, fill, radius or shadow, over framed figure panels (a tinted card with a border or drop shadow)",
+      "reason": "A frame tells readers they've entered a separate widget. A gear drawn on the same paper as the sentence above it reads as the thing that sentence describes, so readers keep following the argument as they scroll into a figure.",
+      "evidence": [
+        "30 of 30 canvas containers: transparent background, 0px border, 0px radius",
+        "first canvas is 44.5% fully transparent pixels",
+        "0 box-shadows and 0 card containers on the page",
+        "figures are separated only by a 36.8px margin above and 32px below"
+      ]
+    },
+    {
+      "name": "Gray controls, colored subjects",
+      "trigger": "When the simulations needed controls (26 sliders, 18 pause buttons, 1 segmented switch)",
+      "decision": "Chose flat neutral controls (a 4px #777777 track whose unfilled side drops to 0.2 opacity, a 40px round #777777 knob, a 44px pause square at 5% black, a #DDDDDD segmented trough holding a page-colored pill) over sliders and buttons in the brand blue or a hue per control, with borders and shadows",
+      "reason": "Eyes go to saturated color first. When every control is gray, a reader dragging the knob watches the mechanism respond and sees the control only at the edge of their vision.",
+      "evidence": [
+        "slider: 4px track at 2px radius, #777777 filled, #777777 at 0.2 unfilled, 40px #777777 knob at 20px radius, x26",
+        "pause: 44x44px, rgba(0,0,0,0.05), 6px radius, pinned to the canvas bottom-left, x18",
+        "segmented: 500x40px #DDDDDD trough at 10px radius, 164x36px #F8F8F8 pill at 7px radius",
+        "no control uses #2052BB, #0181EB or a figure hue; knob contrast 4.2:1 on #F8F8F8"
+      ]
+    },
+    {
+      "name": "One outline, saturated emphasis strokes",
+      "trigger": "When the designer drew dozens of different mechanisms (gears, fans, discs, involute curves) for one article",
+      "decision": "Chose one 1.5px #555555 outline around light tinted fills (#FCD561, #D45E5E, #5EAAD4, #78AD6C at HSL lightness 55 to 68%), with deeper 2.5 to 3px strokes kept for the path or vector under discussion (#1F6AEA and #EB2D2D at 83% saturation against 58% for the blue and red fills), over a new palette per figure or fully saturated bodies",
+      "reason": "When every body shares an outline and a similar lightness, readers stop comparing drawing styles and compare only what changes, such as speed or direction. The one saturated stroke then reads as the quantity to watch, with no caption needed.",
+      "evidence": [
+        "2,349 sampled stroke calls at 1.5px #555555 vs 160 each at 3px #1F6AEA and #EB2D2D",
+        "fill calls: #78AD6C 1234, #FCD561 921, #5EAAD4 432, #D45E5E 138",
+        "every gear hub is #888888",
+        "red body fill #D45E5E is 58% HSL saturation; red emphasis stroke #EB2D2D is 83%"
+      ]
+    },
+    {
+      "name": "Text is the legend",
+      "trigger": "When a figure had to tell readers which colored line or point is which",
+      "decision": "Chose to name each color inside the running prose in that stroke's exact hex at weight 500, and to keep in-canvas text to unboxed 19px IBM Plex Sans readouts whose state changes by opacity (1.0 active, 0.08 inactive), over legend boxes or hover tooltips inside the figure",
+      "reason": "Readers are reading the sentence while they watch the drawing, so a key inside the sentence saves a look-away. A label that fades in place keeps the figure still while its state changes.",
+      "evidence": [
+        "inline color words #EB2D2D, #1F6AEA, #39C085, #F74D4D, #E03232 at weight 500 match canvas stroke and fill hex",
+        "7 gold #CA9839 link_button phrases ('dedendum circle', 'globally pause') change figure state",
+        "canvas labels: 19px IBM Plex Sans #000000 or #333333, inactive copies at globalAlpha 0.08",
+        "0 bordered labels or legend panels across 30 figures"
+      ]
+    }
+  ]
+}

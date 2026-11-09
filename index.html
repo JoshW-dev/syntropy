@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <title>Syntropy</title>
+    <meta name="description" content="Cells on a lattice become organisms, tribes, hierarchies and governments, from five local rules. A 3D emergence simulation that runs in your browser." />
+    <meta name="theme-color" content="#F8F8F8" />
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Syntropy" />
+    <meta property="og:description" content="Cells become organisms, tribes, hierarchies and governments, from five local rules." />
+    <meta property="og:image" content="/og.png" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+  </head>
+  <body>
+    <canvas id="scene" aria-label="A 3D simulation of cells, organisms and realms"></canvas>
+
+    <header class="mast">
+      <h1>Syntropy</h1>
+      <p>Order from simple rules</p>
+    </header>
+
+    <ol class="ladder" id="ladder" aria-label="Levels of emergence"></ol>
+
+    <section class="chronicle" id="chronicle" aria-live="polite" aria-label="Chronicle"></section>
+
+    <nav class="controls" aria-label="Simulation controls">
+      <button id="pause" class="btn icon" aria-label="Pause" title="Pause (space)">
+        <svg viewBox="0 0 20 20" width="20" height="20" aria-hidden="true"><rect class="g-pause" x="5" y="4" width="3.2" height="12" rx="1" /><rect class="g-pause" x="11.8" y="4" width="3.2" height="12" rx="1" /><path class="g-play" d="M6 4.2v11.6c0 .6.6 1 1.1.7l9.2-5.8c.5-.3.5-1 0-1.3L7.1 3.5C6.6 3.2 6 3.6 6 4.2z" /></svg>
+      </button>
+      <div class="speed" id="speed" role="radiogroup" aria-label="Speed">
+        <button role="radio" data-speed="1">1×</button>
+        <button role="radio" data-speed="2">2×</button>
+        <button role="radio" data-speed="4">4×</button>
+        <button role="radio" data-speed="8">8×</button>
+      </div>
+      <button id="skip" class="btn" title="Skip ahead to organisms">Skip</button>
+      <button id="new" class="btn" title="New world (N)">New world</button>
+      <button id="share" class="btn" title="Copy a link to this world">Share</button>
+    </nav>
+
+    <dl class="readout" id="readout"></dl>
+
+    <div class="labels" id="labels" aria-hidden="true"></div>
+    <div class="tip" id="tip" hidden></div>
+
+    <footer class="foot">
+      <a href="https://github.com/JoshW-dev/syntropy" target="_blank" rel="noopener">How it works</a>
+      <span id="seed-label"></span>
+    </footer>
+
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>
