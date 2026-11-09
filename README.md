@@ -1,69 +1,75 @@
 # Syntropy
 
-![Realms hanging from their rulers, coloured by tribe](docs/hero.png)
+![Realms of voxel organisms hanging from their rulers, coloured by lineage](docs/hero.png)
 
-### [**Watch it run →**](https://syntropy-sim.vercel.app)
+### [**Watch it run →**](https://syntropy-sim.vercel.app) &nbsp; [**Read the paper →**](https://syntropy-sim.vercel.app/paper/) &nbsp; [PDF](https://syntropy-sim.vercel.app/paper/syntropy.pdf)
 
-Syntropy is a 3D take on Conway's Game of Life that keeps climbing. Coloured cells on a lattice settle into forms, the forms become organisms, the organisms group into tribes, and the tribes end up in hierarchies where some organisms rule others. Every so often a realm survives the death of its ruler, which is the point where I'd call it a government.
+Syntropy is a 3D take on Conway's Game of Life that keeps climbing. Coloured cells on a lattice settle into forms. Each form that holds its shape for twenty generations comes loose as an organism made of exactly those cells, in exactly that place, while the rest of the lattice keeps running. Organisms eat, grow a cell when they have surplus, burn one when they starve, split in two, fight and age. Then they start following each other, and the world climbs through tribes and hierarchies to realms that regroup under a new ruler when the old one dies.
 
-The rules only say what one organism does next to its neighbours. Each rung of the ladder is a measurement that notices when a new kind of order has shown up. It runs in your browser with no server behind it, and each world has a seed in the URL, so a link replays the same history for whoever opens it.
+None of that is scripted. There's no rule for tribes, ranks, conquest, rebellion, heirs or government. Every organism makes one choice, over and over: follow whoever keeps it safest, net of the tribute it would pay, or follow no one. Conquest, secession and succession all fall out of that one choice, and the ladder on the left of the screen only reports what a measurement noticed.
+
+It runs in your browser with no server behind it, and each world has a seed in the URL, so a link replays the same history.
 
 ## The ladder
 
-| Level | What runs | Reached when |
+| Level | What happens | Reached when |
 | --- | --- | --- |
-| 1. Cells | 3D Life on a 48³ lattice: a dead cell with 7 or 8 live neighbours is born, a live cell with 1 to 5 survives. Newborns take the most common lineage around them. | 56 forms hold their shape for 20 generations |
-| 2. Organisms | Each form that held becomes one body at the same spot, and the forms that didn't fade. Bodies eat from a food field that regrows, move, split when they're rich, and age. | The held forms become bodies |
-| 3. Tribes | A newborn follows its parent. A ruler or a loner bows to a much stronger kin polity nearby, sooner when foreigners crowd it. | 3 kin groups of 12+ follow chiefs |
-| 4. Hierarchy | Members of two polities that touch can fight. Local numbers decide, and a clear winner takes the loser (and everyone below it) as followers. Followers pay tribute upward and get fed when they starve. A lord manages 4 followers directly, so newcomers are handed down the tree. | One realm of 40+ rules 2 tribes through 5 ranks |
-| 5. Government | A follower whose branch outgrows the rest of the realm may break away or take the throne. When a ruler dies, the strongest follower inherits, and the others stay only if the heir is clearly stronger. | A realm of 40+ outlives its ruler and keeps 60% of its members |
+| 1. Cells | 3D Life on a 48³ lattice: a dead cell with 7 or 8 live neighbours is born, a live cell with 1 to 5 survives. Newborns take the most common lineage around them. | The lattice starts alive |
+| 2. Organisms | A form that keeps its place and size for 20 generations comes loose as one body made of its cells. Intake and upkeep scale with mass^0.75 (Kleiber's law). Surplus builds a cell, deficit burns one, and a body of 12 cells splits in two. | The first form comes loose |
+| 3. Tribes | Organisms choose whom to follow by local safety, net of tribute. Kin threaten each other less and tax each other less. | 3 groups of 10+, mostly kin, follow one chief |
+| 4. Hierarchy | Fights are Tullock contests between the local mass of two polities, and the loser loses cells to the winner. Tribute flows up every chain. | A realm of 30+ rules other lineages through 4 ranks |
+| 5. Government | When a ruler dies nobody inherits, and every orphan chooses again. | 60% of a realm of 30+ regroup under one new ruler within 240 ticks |
 
 Levels can only be reached in order.
 
 ## Reading the picture
 
-- The fill colour is the tribe (lineage) an organism was born into: Blue, Red, Gold, Green, Violet or Rose.
-- A line runs from every follower up to its lord, in the colour of the ruler's tribe, so a Blue line on a Red organism means Blue rules it.
-- Followers settle just below their lord. A realm hangs from its ruler like an upside-down tree, and siblings spread apart in proportion to the size of their branches.
-- A ring marks a ruler, and bigger bodies have more organisms below them.
-- The green stipple is food. It thins out where a realm grazes and grows back after.
-- Hovering an organism traces its chain of command and shows its rank.
+- Every organism is drawn as its own cells, in the colour of the lineage it came from (Blue, Red, Gold, Green, Violet or Rose).
+- A line runs from every follower up to its lord, in the colour of the ruler's lineage, so a Blue line on a Red body means Blue rules it.
+- Each rank is drawn one step below its lord, so a realm hangs from its ruler like an upside-down tree. The step exists only in the drawing, and the simulation never sees it.
+- A ring marks a ruler, and it darkens as the realm grows.
+- The faint stipple is food. It thins where a realm grazes and grows back after.
+- Hovering an organism traces its chain of command and shows its rank, size and age.
+- The Look menu switches between Paper (the default), Night, Blueprint, Ink and Nebula. The Environment panel changes food, fighting, tribute, kinship, control loss, lifespan and choice noise live, and the URL carries your settings.
 
-## Tuning without graphics
+## The paper
+
+[Syntropy: From Cells to Government](https://syntropy-sim.vercel.app/paper/) is the full write-up: the model, the derivation of the allegiance rule (the Kelly criterion applied to Hobbes' bargain), the measurements, and the experiments. Those are a 48-world baseline, ablations of every ingredient, a phase diagram over fear and tribute, an analysis of what makes a realm survive its ruler, and the search behind the lattice rule. Every number in it is filled in from the experiment output when the paper is built.
+
+## Tuning and experiments without graphics
 
 The simulation core in `src/sim` is plain TypeScript with no browser dependencies, so Node runs it directly (Node 22.18+ strips the types).
 
 ```bash
-npm run world -- --seed cedar --ticks 6000
+npm run world -- --seed cedar --ticks 9000
 ```
 
-That prints one world's history as a chronicle, at 100 ticks to a year, with the ladder times and counts at the end. These lines are from that run:
+That prints one world's history as a chronicle, at 100 ticks to a year:
 
 ```
-y  5 *** Tribes: 3 kin groups now follow chiefs.
-y 13     Pever conquers Vesa and its 29.
-y 13 *** Hierarchy: Pever rules 3 tribes through 8 ranks.
-y 13     Rebellion: 29 Gold subjects break away from Pever.
-y 19 *** Government: Taul outlives its ruler, and the heir keeps 100% of 41.
-y 23     Coup in Sada: a Green lord seizes the throne.
-y 45     Tove overruns Kotopex and its 37.
+y  3 *** Organisms: a Gold form holds together and comes loose from the lattice.
+y  9 *** Tribes: 3 kin groups now follow chiefs.
+y 17 *** Hierarchy: Kais rules 4 tribes through 6 ranks.
+y 42 *** Government: Kais outlives its ruler: 61% of 36 regroup under a new ruler.
 ```
 
 ```bash
-npm run sweep -- --sets 160 --refine 72 --seeds 6 --ticks 12000
+npm run sweep -- --sets 200 --refine 90 --seeds 6 --ticks 9000
 ```
 
-The sweep runs a random search over 32 parameters on worker threads, refines around the four best sets, and then checks the three finalists on 16 seeds it never trained on. Each run gets a score for whether every level arrives in order and not too early, how many major realms stand and how much of the population they hold, and whether some wars, rebellions and collapses happen along the way. The winner goes to `tuning/best.json` and the full table to `tuning/runs/`. The current defaults came out of this loop, which took about 10 minutes on 16 worker threads.
-
-To watch a parameter file in the browser:
+The sweep searches 26 parameters on worker threads, refines around the best sets and confirms the winner on 16 seeds it never trained on. It scores worlds on whether every level appears in order at a pace you can watch, whether several realms coexist, and whether chains of command stay readable. The current defaults came out of it.
 
 ```bash
-npm run url -- tuning/best.json --base http://localhost:5173
+npm run experiments
+npm run figures
+npm run paper
 ```
 
-### How consistent it is
+These regenerate the paper's data (about five minutes on 16 threads), draw its figures and rebuild it. `npm run paper:pdf` prints the PDF while the dev server is running.
 
-I checked the defaults on 32 seeds, 16 from the search and 16 it never saw, each run for 150 to 190 years. 31 of the 32 worlds reached all five levels. The median world had a multi-tribe hierarchy by year 20 to 38 and a government by year 29 to 80, with 10 to 11 major realms (15+ members) holding 70% of the population and 2 to 3 rebellions or coups per 10 years. The one miss (seed `s13`) had 25 conquests, but no realm ever held two tribes, 40 members and 5 ranks at the same time.
+## How consistent it is
+
+All 48 seeded worlds in the paper's baseline climbed the whole ladder within 150 simulated years. The median world formed tribes in year 9.5, a hierarchy in year 22.8 and a government in year 37.8, which at the default speed comes about a minute after the first organism. The ablations switch off one ingredient at a time on 32 worlds each. Without fear of unallied neighbours nothing forms at all, while worlds with no fights, no tribute or no kin preference still reached government every time. The phase diagram in the paper maps where in fear and tribute each level stops appearing.
 
 ## Running it
 
@@ -72,17 +78,19 @@ npm install
 npm run dev
 ```
 
-`npm run build` writes a static site to `dist/`. It's Vite and Three.js with no server code, so Vercel serves it as plain files and a visit costs about 260 KB of transfer. Space pauses, `N` makes a new world, and `1` to `4` set the speed.
+`npm run build` writes a static site to `dist/`, with the simulation and the paper. It's Vite and Three.js with no server code, so a visit costs a few hundred kilobytes of static transfer and nothing else. Space pauses, `N` makes a new world, `H` hides the interface, and `1` to `4` set the speed.
 
 ## Layout
 
 - `src/sim/cells.ts` is the lattice and form tracking.
-- `src/sim/society.ts` holds the organisms, polities, events and ladder checks.
+- `src/sim/society.ts` holds the organisms, the allegiance rule, polities, events and ladder checks.
+- `src/sim/world.ts` joins the two levels into one continuous world.
 - `src/sim/score.ts` turns a run into numbers and a score.
-- `src/render/` has the voxel, sphere, line and food drawing.
-- `src/ui/hud.ts` is the ladder, chronicle and readouts.
-- `scripts/` holds the headless runner, sweep, rule search and URL helper.
+- `src/render/` draws cubes, rings, lines and food, and holds the themes.
+- `src/ui/` is the ladder, chronicle, readouts and panels.
+- `scripts/` holds the headless runner, sweep, experiments, figures and the paper build.
+- `paper/` is the paper source, data and figures.
 
-The look follows `docs/taste/ciechanow.ski.md`: one paper ground, gray controls, a single 1.5px ink outline, and colour spent only on the organisms and the words that name them.
+The default look follows `docs/taste/ciechanow.ski.md`: one paper ground, gray controls, a single ink outline, and colour spent only on the organisms and the words that name them.
 
 MIT licensed.
