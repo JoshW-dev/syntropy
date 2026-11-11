@@ -62,8 +62,8 @@ That prints one world's history as a chronicle, at 100 ticks to a year:
 ```
 y  3 *** Organisms: a Gold form holds together and comes loose from the lattice.
 y  9 *** Tribes: 3 kin groups now follow leaders.
-y 17 *** Hierarchy: Kais has 6 ranks and members from 4 lineages.
-y 42 *** Government: Kais outlives its leader: 61% of 36 regroup under a new leader.
+y 17 *** Hierarchy: Blue 1 has 6 ranks and members from 4 lineages.
+y 42 *** Government: Blue 1 outlives its leader: 61% of 36 regroup under a new leader.
 ```
 
 ```bash

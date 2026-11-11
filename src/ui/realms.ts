@@ -8,6 +8,10 @@ import type { App } from '../app.ts';
 /** Seconds between repaints. */
 const REPAINT = 0.4;
 const ROWS = 8;
+/** Heights in px of the heading, one row and the closing line, to tell how many rows fit. */
+const HEAD = 24;
+const ROW = 27;
+const REST = 24;
 
 const $ = <T extends HTMLElement>(id: string) => document.getElementById(id) as T;
 
@@ -26,6 +30,8 @@ export class Realms {
   private el = $<HTMLElement>('realms');
   private list = $<HTMLDivElement>('realms-list');
   private rest = $<HTMLParagraphElement>('realms-rest');
+  private left = this.el.parentElement as HTMLElement;
+  private ladder = $<HTMLElement>('ladder');
   private rows: Row[] = [];
   private since = REPAINT;
   private hovered: HTMLElement | null = null;
@@ -92,7 +98,11 @@ export class Realms {
         if (loner < 0 || s.mass[i] > s.mass[loner]) loner = i;
       }
     }
-    const shown = standing.slice(0, ROWS);
+    // Show only whole rows: as many groups as fit between the ladder and the chronicle, with room
+    // kept for the heading, the "In no group" row and the line that counts the rest.
+    const room = this.left.clientHeight - this.ladder.offsetHeight - 6;
+    const fit = Math.floor((room - HEAD - ROW - REST) / ROW);
+    const shown = standing.slice(0, Math.max(1, Math.min(ROWS, fit)));
     const picked = this.app.selected >= 0 ? s.rootOf(this.app.selected) : -1;
     this.rows.forEach((row, k) => {
       row.el.classList.toggle('sel', !!shown[k] && shown[k].sovereign === picked);
@@ -109,14 +119,14 @@ export class Realms {
       let html: string[];
       if (r) {
         const m = mix.get(r.sovereign)!;
-        const total = Math.max(1, m.reduce((a, b) => a + b, 0));
         const bars = m.map((n, t) => (n ? `<i style="flex:${n};background:var(--t${t})" title="${n} ${this.tribeName(t)}"></i>` : '')).join('');
         const ranks = r.depth + 1;
-        html = [`var(--t${r.tribe})`, r.name, bars, String(total), `${ranks} rank${ranks === 1 ? '' : 's'}`];
+        // The count is the last survey's, the same number the labels and the readout show.
+        html = [`var(--t${r.tribe})`, r.name, bars, String(r.size), `${ranks} rank${ranks === 1 ? '' : 's'}`];
         key = `r${r.sovereign}|${html.join('|')}`;
         row.el.dataset.slot = String(r.sovereign);
         row.el.dataset.realm = '1';
-        row.el.title = `${r.name}: founded by a ${this.tribeName(r.tribe)} leader in year ${Math.floor(r.founded / 100)}, now on leader number ${r.rulers}. Click to follow it.`;
+        row.el.title = `${r.name}: the ${ordinal(Number(r.name.split(' ')[1]))} group a ${this.tribeName(r.tribe)} leader founded. It formed in year ${Math.floor(r.founded / 100)} and is on leader number ${r.rulers}. Click to follow it.`;
       } else {
         html = ['', 'In no group', '', String(outside), ''];
         key = `o|${outside}`;
@@ -144,4 +154,9 @@ export class Realms {
   private tribeName(t: number): string {
     return ['Blue', 'Red', 'Gold', 'Green', 'Violet', 'Rose'][t] ?? '';
   }
+}
+
+function ordinal(n: number): string {
+  const tail = n % 100 >= 11 && n % 100 <= 13 ? 'th' : (['th', 'st', 'nd', 'rd'][n % 10] ?? 'th');
+  return `${n}${tail}`;
 }

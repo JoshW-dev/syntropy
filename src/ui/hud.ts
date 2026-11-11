@@ -150,10 +150,13 @@ export class Hud {
   /** Escape a line of chronicle text and colour the realm and tribe names in it. */
   colorize(text: string): string {
     const esc = text.replace(/[&<>]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' })[c]!);
-    // Realm and tribe names are capitalised words; colour each one that we know.
-    return esc.replace(/\b[A-Z][a-z]+\b/g, (m) => {
-      const t = this.realmTribe.get(m) ?? TRIBE_NAMES.indexOf(m as (typeof TRIBE_NAMES)[number]);
-      return t >= 0 ? `<b style="color:var(--t${t})">${m}</b>` : m;
+    // A group's name is a lineage and a number ("Blue 3"), and a lineage alone is one capitalised
+    // word. Colour each one that we know, the group's number included.
+    return esc.replace(/\b([A-Z][a-z]+)( \d+)?\b/g, (m, word: string, num?: string) => {
+      const group = num ? this.realmTribe.get(m) : undefined;
+      if (group !== undefined) return `<b style="color:var(--t${group})">${m}</b>`;
+      const t = TRIBE_NAMES.indexOf(word as (typeof TRIBE_NAMES)[number]);
+      return t >= 0 ? `<b style="color:var(--t${t})">${word}</b>${num ?? ''}` : m;
     });
   }
 
@@ -187,7 +190,8 @@ export class Hud {
       }
       el.style.display = '';
       el.style.transform = `translate(${l.x.toFixed(1)}px, ${l.y.toFixed(1)}px) translate(-50%, -100%)`;
-      const html = `<b style="color:var(--t${l.tribe})">${l.name}</b> <span>${l.size}</span>`;
+      // The size goes in brackets, so it does not run into the number in the name.
+      const html = `<b style="color:var(--t${l.tribe})">${l.name}</b> <span>(${l.size})</span>`;
       if (el.innerHTML !== html) el.innerHTML = html;
       el.dataset.slot = String(l.slot);
     });

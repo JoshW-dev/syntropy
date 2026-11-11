@@ -17,7 +17,8 @@
     "experiments": "node scripts/experiments.ts",
     "figures": "node scripts/figures.ts",
     "paper": "node scripts/build-paper.ts",
-    "paper:pdf": "node scripts/paper-pdf.ts"
+    "paper:pdf": "node scripts/paper-pdf.ts",
+    "capture": "node scripts/capture.ts"
   },
   "engines": {
     "node": ">=22.18"

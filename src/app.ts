@@ -405,7 +405,7 @@ export class App {
         const v = b.positionOf(r.sovereign, this.tmp).project(cam);
         const x = (v.x * 0.5 + 0.5) * w;
         const y = (-v.y * 0.5 + 0.5) * h - 14;
-        const width = (r.name.length + String(r.size).length + 1) * 7.5;
+        const width = (r.name.length + String(r.size).length + 3) * 7.5;
         const clash = placed.some((q) => Math.abs(q.x - x) < (q.w + width) / 2 + 6 && Math.abs(q.y - y) < 18);
         if (v.z > 1 || clash || !Number.isFinite(x)) return { x: NaN, y: NaN, name: r.name, size: r.size, tribe: r.tribe, slot: r.sovereign };
         placed.push({ x, y, w: width });
@@ -451,7 +451,7 @@ export class App {
     items.push(['Organisms', s.count.toLocaleString()]);
     if (s.count > 0) {
       items.push(['Groups', String(major.length)]);
-      items.push(['Largest', top ? `${top.name} ${top.size}` : 'none']);
+      items.push(['Largest', top ? `${top.name} (${top.size})` : 'none']);
       items.push(['Deepest chain', `${ranks} rank${ranks === 1 ? '' : 's'}`]);
     }
     this.hud.setReadout(items);

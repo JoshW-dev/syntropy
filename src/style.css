@@ -1647,6 +1647,11 @@ a:focus-visible {
   cursor: pointer;
 }
 
+/* The size sits beside a name that ends in a number, so it is dark enough to read over bodies. */
+.label span {
+  color: var(--control);
+}
+
 .tip i {
   font-style: normal;
   color: var(--muted);

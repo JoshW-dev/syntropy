@@ -21,7 +21,7 @@
 // and resolveSuccessions().
 
 import type { Rng } from './rng.ts';
-import { TRIBE_NAMES, realmName } from './names.ts';
+import { TRIBE_NAMES, groupName } from './names.ts';
 
 /** Most cells one body can hold. */
 export const MAXB = 32;
@@ -388,7 +388,6 @@ export class Society {
   ablate = { tribute: false, conflict: false, allegiance: false, kin: false, attention: false };
 
   private rng: Rng;
-  private nameRng: Rng;
   private order: Int32Array;
   private freeStack: Int32Array;
   private freeTop = 0;
@@ -416,7 +415,8 @@ export class Society {
   private pending: PendingSuccession[] = [];
   private pendingUid = new Set<number>();
   private nextUid = 1;
-  private names = new Set<string>();
+  /** Groups founded so far by each lineage, for their names. */
+  private nameCounts: number[] = [];
   private gN: number;
   private cellSize: number;
   private cellStart: Int32Array;
@@ -431,7 +431,9 @@ export class Society {
   constructor(params: SocietyParams, rng: Rng, homelands?: { x: number; y: number; z: number }[]) {
     this.p = params;
     this.rng = rng;
-    this.nameRng = rng.fork();
+    // Group names once came from a forked stream. The fork still happens, and its result is unused,
+    // so the main stream is where it always was and every seed keeps its history.
+    rng.fork();
     this.cell = 2 / params.latticeSize;
     const M = (this.M = params.maxN);
     this.alive = new Uint8Array(M);
@@ -1605,7 +1607,7 @@ export class Society {
       if (rid < 0 && size >= p.realmMin && !this.pendingUid.has(uid[r])) {
         rid = this.realms.length;
         this.realms.push({
-          id: rid, name: realmName(this.nameRng, this.names), tribe: tribe[r], founded: this.tick, ended: -1,
+          id: rid, name: groupName(tribe[r], this.nameCounts), tribe: tribe[r], founded: this.tick, ended: -1,
           rulers: 1, peak: size, size, depth: subDepth[r], tribes: 1, sovereign: r, notable: false,
         });
         realmOf[r] = rid;
@@ -1630,7 +1632,7 @@ export class Society {
       if (!realm.notable && size >= p.notableSize) {
         realm.notable = true;
         const verb = ['comes together', 'forms', 'takes shape'][realm.id % 3];
-        this.emit('realm', `${realm.name} ${verb}: ${size} follow a ${TRIBE_NAMES[tribe[r]]} leader.`, undefined, r);
+        this.emit('realm', `${realm.name} ${verb}: ${size} organisms under one leader.`, undefined, r);
       }
       if (size >= p.hierSize && subDepth[r] >= p.hierDepth && realm.tribes >= p.hierTribes && size - this.kinCount[r] >= p.hierForeign * size) {
         if (!hierarchy || size > subSize[hierarchy.r]) hierarchy = { r, tribes: realm.tribes, depth: subDepth[r] };
