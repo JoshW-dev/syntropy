@@ -446,13 +446,13 @@ a:focus-visible {
   text-align: left;
 }
 
-/* The dial makes the readout one row taller, so the guide column ends one row higher. */
-.clim-on .side {
-  bottom: 224px;
-}
-
-.clim-on.card-open .side {
-  bottom: 56px;
+/* The dial makes the readout one row taller, so on a wide stage the guide column ends one row
+   higher. A margin does it, so the rule holds wherever the column's own bottom edge is set. A picked
+   organism's card hides the readout, and a narrow stage has the readout at the top. */
+@container stage (min-width: 761px) {
+  .clim-on:not(.card-open) .side {
+    margin-bottom: 28px;
+  }
 }
 
 /* ---------- labels and tip ---------- */
