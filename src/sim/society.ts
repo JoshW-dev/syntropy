@@ -197,13 +197,16 @@ export const DEFAULT_SOCIETY: SocietyParams = {
   govWindow: 240,
 };
 
-export type EventKind = 'level' | 'life' | 'realm' | 'conquest' | 'join' | 'rebellion' | 'succession' | 'fragment' | 'fall';
+export type EventKind = 'level' | 'life' | 'realm' | 'conquest' | 'join' | 'rebellion' | 'succession' | 'fragment' | 'fall' | 'hand';
 
 export interface SimEvent {
   tick: number;
   kind: EventKind;
   text: string;
   level?: number;
+  /** The organism the event is about, for a viewer's camera: its slot and uid, when there is one. */
+  slot?: number;
+  uid?: number;
 }
 
 export interface Realm {
@@ -256,6 +259,8 @@ export interface Sample {
 /** A finished succession test, kept for analysis. */
 export interface SuccessionRecord {
   tick: number;
+  /** The realm whose ruler died. */
+  realm: number;
   members: number;
   keep: number;
   /** Share of the dead ruler's realm held by its largest direct branch at the moment of death. */
@@ -263,6 +268,46 @@ export interface SuccessionRecord {
   /** Mean distance of members from the realm's centre at death, in perception radii. */
   spread: number;
   survived: boolean;
+}
+
+/**
+ * One option an organism weighs when it chooses whom to follow. `u` is the utility the rule uses;
+ * the other fields are its terms, kept so a viewer can see why the option scored as it did.
+ */
+export interface Option {
+  /** The candidate lord's slot, or -1 for answering to no one. */
+  lord: number;
+  root: number;
+  u: number;
+  /** Mass on the organism's side within its perception radius if it takes this option. */
+  allies: number;
+  /** Weighted unallied mass that would still threaten it. */
+  threat: number;
+  /** ln of the share kept after tribute (0 when it follows no one). */
+  tax: number;
+  /** Control loss for the candidate's depth. */
+  rank: number;
+  /** Attention and distance costs, net of the loyalty bonus. */
+  other: number;
+}
+
+/** A succession test in progress: a ruler died and its former members are choosing again. */
+export interface SuccessionWatch {
+  realm: number;
+  name: string;
+  tribe: number;
+  start: number;
+  due: number;
+  members: number;
+  /** Members still alive, and their slots. */
+  alive: number;
+  slots: number[];
+  /** Share of the original members now under the largest single root. */
+  keep: number;
+  /** Centre of the surviving members, in world coordinates. */
+  x: number;
+  y: number;
+  z: number;
 }
 
 export const L_TRIBES = 2;
@@ -304,6 +349,8 @@ export class Society {
   tribe: Uint8Array;
   uid: Int32Array;
   cooldown: Uint16Array;
+  /** How many times each organism has changed whom it follows. */
+  switches: Uint16Array;
   lord: Int32Array;
   firstChild: Int32Array;
   nextSib: Int32Array;
@@ -335,6 +382,8 @@ export class Society {
   history: Sample[] = [];
   successions: SuccessionRecord[] = [];
   rootCount = 0;
+  /** Organisms a viewer removed from outside the model (see strike()). */
+  strikes = 0;
   /** Mechanisms an experiment can switch off (see scripts/experiments.ts). */
   ablate = { tribute: false, conflict: false, allegiance: false, kin: false, attention: false };
 
@@ -402,6 +451,7 @@ export class Society {
     this.tribe = new Uint8Array(M);
     this.uid = new Int32Array(M);
     this.cooldown = new Uint16Array(M);
+    this.switches = new Uint16Array(M);
     this.lord = new Int32Array(M).fill(NONE);
     this.firstChild = new Int32Array(M).fill(NONE);
     this.nextSib = new Int32Array(M).fill(NONE);
@@ -557,7 +607,7 @@ export class Society {
     }
     if (made.length && this.levels[1] < 0) {
       this.levels[1] = this.tick;
-      this.emit('level', `Organisms: a ${TRIBE_NAMES[lineage]} form holds together and comes loose from the lattice.`, 1);
+      this.emit('level', `Organisms: a ${TRIBE_NAMES[lineage]} form holds together and comes loose from the lattice.`, 1, made[0]);
     }
     return made;
   }
@@ -575,6 +625,7 @@ export class Society {
     this.nChild[i] = 0;
     this.realmOf[i] = NONE;
     this.cooldown[i] = 0;
+    this.switches[i] = 0;
     this.tribIn[i] = 0;
     this.tribNext[i] = 0;
     this.lostTo[i] = NONE;
@@ -1142,8 +1193,12 @@ export class Society {
     this.queueLen = 0;
   }
 
-  /** The one allegiance rule. See the header comment and the paper for the derivation. */
-  private choose(i: number): void {
+  /**
+   * The one allegiance rule, first half: list what organism i could do and score each option. See
+   * the header comment and the paper for the derivation. It changes nothing but scratch arrays and
+   * draws no random numbers, so explain() can call it for a viewer without disturbing the world.
+   */
+  private weigh(i: number): Option[] {
     const { p, pos, mass, tribe, lord, nChild, gN, cellStart, cellItems, cellOf } = this;
     const R = p.senseRadius;
     const R2 = R * R;
@@ -1211,8 +1266,11 @@ export class Society {
     const tribute = this.ablate.tribute ? 0 : p.tribute;
     const kinShare = this.ablate.kin ? 0 : p.kinShare;
     // Options: 0 = answer to no one; then one per neighbouring polity.
-    const opts: { lord: number; u: number; root: number }[] = [];
-    opts.push({ lord: NONE, root: NONE, u: Math.log(ownNear / (ownNear + totalHost)) + (L < 0 ? p.loyalty : 0) });
+    const opts: Option[] = [];
+    opts.push({
+      lord: NONE, root: NONE, u: Math.log(ownNear / (ownNear + totalHost)) + (L < 0 ? p.loyalty : 0),
+      allies: ownNear, threat: totalHost, tax: 0, rank: 0, other: L < 0 ? -p.loyalty : 0,
+    });
     let sawCurrent = false;
     for (let q = 0; q < nTouched; q++) {
       const r = this.touched[q];
@@ -1234,15 +1292,27 @@ export class Society {
       const kin = tribe[j] === tribe[i];
       const tax = Math.log(1 - tribute * (kin ? 1 - kinShare : 1));
       const loss = p.controlLoss * (this.depth[j] + 1);
-      opts.push({ lord: j, root: r, u: Math.log(A / (A + H)) + tax - cost - loss });
+      opts.push({ lord: j, root: r, u: Math.log(A / (A + H)) + tax - cost - loss, allies: A, threat: H, tax, rank: loss, other: cost });
     }
     if (L >= 0 && !sawCurrent) {
       // The current lord's polity has no one nearby: staying buys no local protection.
       const d = Math.hypot(pos[3 * L] - pos[3 * i], pos[3 * L + 1] - pos[3 * i + 1], pos[3 * L + 2] - pos[3 * i + 2]);
       const kin = tribe[L] === tribe[i];
       const tax = Math.log(1 - tribute * (kin ? 1 - kinShare : 1));
-      opts.push({ lord: L, root: curRoot, u: Math.log(ownNear / (ownNear + totalHost)) + tax - (p.distanceCost * d) / R + p.loyalty - p.controlLoss * (this.depth[L] + 1) });
+      opts.push({
+        lord: L, root: curRoot, u: Math.log(ownNear / (ownNear + totalHost)) + tax - (p.distanceCost * d) / R + p.loyalty - p.controlLoss * (this.depth[L] + 1),
+        allies: ownNear, threat: totalHost, tax, rank: p.controlLoss * (this.depth[L] + 1), other: (p.distanceCost * d) / R - p.loyalty,
+      });
     }
+    return opts;
+  }
+
+  /** The one allegiance rule, second half: pick an option and act on it. */
+  private choose(i: number): void {
+    const { p, tribe } = this;
+    const L = this.lord[i];
+    const curRoot = L >= 0 ? this.rootOf(i) : NONE;
+    const opts = this.weigh(i);
 
     // Softmax choice.
     let pick = 0;
@@ -1274,15 +1344,17 @@ export class Society {
       const n = this.subSize[i];
       const from = curRoot >= 0 ? this.realmOf[curRoot] : NONE;
       this.unlink(i);
+      this.switches[i]++;
       this.stats.secessions++;
       if (from >= 0 && this.realms[from].notable && n >= Math.max(8, 0.15 * this.realms[from].size)) {
         const foreign = tribe[i] !== this.realms[from].tribe;
         this.stats.rebellions++;
-        this.emit('rebellion', `${n} ${foreign ? `${TRIBE_NAMES[tribe[i]]} subjects` : 'followers'} break away from ${this.realms[from].name}.`);
+        this.emit('rebellion', `${n} ${foreign ? `${TRIBE_NAMES[tribe[i]]} subjects` : 'followers'} break away from ${this.realms[from].name}.`, undefined, i);
       }
       return;
     }
     if (!this.attach(i, choice.lord)) return;
+    this.switches[i]++;
     this.stats.joins++;
     const hostRoot = this.rootOf(choice.lord);
     if (lostTo >= 0 && lostTo === hostRoot) this.stats.conquests++;
@@ -1291,7 +1363,7 @@ export class Society {
       const host = this.realmLabel(hostRoot);
       if (r.notable) {
         const verb = lostTo === hostRoot ? 'falls to' : tribe[i] === tribe[hostRoot] ? 'joins its kin in' : 'submits to';
-        this.emit(lostTo === hostRoot ? 'conquest' : 'join', `${r.name} ${verb} ${host} (${this.subSize[i]}).`);
+        this.emit(lostTo === hostRoot ? 'conquest' : 'join', `${r.name} ${verb} ${host} (${this.subSize[i]}).`, undefined, i);
       }
       this.endRealm(realmI);
     }
@@ -1399,7 +1471,7 @@ export class Society {
       const realm = this.realms[ps.realm];
       // Regrouping under a ruler that already heads another realm is absorption, not succession.
       const survived = bestRoot >= 0 && keep >= this.p.govKeep && this.realmOf[bestRoot] < 0;
-      this.successions.push({ tick: this.tick, members, keep, heirShare: ps.heirShare, spread: ps.spread, survived });
+      this.successions.push({ tick: this.tick, realm: ps.realm, members, keep, heirShare: ps.heirShare, spread: ps.spread, survived });
       if (survived) {
         this.realmOf[bestRoot] = ps.realm;
         realm.sovereign = bestRoot;
@@ -1407,8 +1479,8 @@ export class Society {
         if (members >= this.p.govSize) {
           this.stats.successions++;
           const detail = `${realm.name} outlives its ruler: ${Math.round(keep * 100)}% of ${members} regroup under a new ruler.`;
-          if (this.levels[L_GOVERNMENT] < 0 && this.levels[L_HIERARCHY] >= 0) this.reach(L_GOVERNMENT, `Government: ${detail}`);
-          else this.emit('succession', detail);
+          if (this.levels[L_GOVERNMENT] < 0 && this.levels[L_HIERARCHY] >= 0) this.reach(L_GOVERNMENT, `Government: ${detail}`, bestRoot);
+          else this.emit('succession', detail, undefined, bestRoot);
         }
       } else {
         if (members >= this.p.govSize) {
@@ -1558,7 +1630,7 @@ export class Society {
       if (!realm.notable && size >= p.notableSize) {
         realm.notable = true;
         const verb = ['rises', 'forms', 'takes shape'][realm.id % 3];
-        this.emit('realm', `${realm.name} ${verb}: ${size} follow a ${TRIBE_NAMES[tribe[r]]} chief.`);
+        this.emit('realm', `${realm.name} ${verb}: ${size} follow a ${TRIBE_NAMES[tribe[r]]} chief.`, undefined, r);
       }
       if (size >= p.hierSize && subDepth[r] >= p.hierDepth && realm.tribes >= p.hierTribes && size - this.kinCount[r] >= p.hierForeign * size) {
         if (!hierarchy || size > subSize[hierarchy.r]) hierarchy = { r, tribes: realm.tribes, depth: subDepth[r] };
@@ -1567,7 +1639,7 @@ export class Society {
     if (tribesLed >= p.tribeCount) this.reach(L_TRIBES, `Tribes: ${tribesLed} kin groups now follow chiefs.`);
     if (hierarchy) {
       const name = this.realms[realmOf[hierarchy.r]].name;
-      this.reach(L_HIERARCHY, `Hierarchy: ${name} rules ${hierarchy.tribes} tribes through ${hierarchy.depth + 1} ranks.`);
+      this.reach(L_HIERARCHY, `Hierarchy: ${name} rules ${hierarchy.tribes} tribes through ${hierarchy.depth + 1} ranks.`, hierarchy.r);
     }
     if (deepest > this.stats.maxDepth) this.stats.maxDepth = deepest;
     if (largest > this.stats.maxRealm) this.stats.maxRealm = largest;
@@ -1578,10 +1650,10 @@ export class Society {
     });
   }
 
-  private reach(level: number, text: string): void {
+  private reach(level: number, text: string, slot?: number): void {
     if (this.levels[level] >= 0 || this.levels[level - 1] < 0) return;
     this.levels[level] = this.tick;
-    this.emit('level', text, level);
+    this.emit('level', text, level, slot);
   }
 
   private endRealm(id: number): void {
@@ -1597,14 +1669,108 @@ export class Society {
     return `a ${TRIBE_NAMES[this.tribe[rootSlot]]} band`;
   }
 
-  emit(kind: EventKind, text: string, level?: number): void {
-    this.events.push({ tick: this.tick, kind, text, level });
+  emit(kind: EventKind, text: string, level?: number, slot?: number): void {
+    const at = slot !== undefined && slot >= 0 && this.alive[slot] ? { slot, uid: this.uid[slot] } : {};
+    this.events.push({ tick: this.tick, kind, text, level, ...at });
     this.emitted++;
     if (this.events.length > 600) this.events.splice(0, 100);
   }
 
   standingRealms(): Realm[] {
     return this.realms.filter((r) => r.ended < 0 && r.sovereign >= 0).sort((a, b) => b.size - a.size);
+  }
+
+  // ---------------------------------------------------------------- for viewers
+  // Nothing below is called by step(). These let an observer look inside the world, and strike()
+  // lets one reach in; the world's answer to a strike still comes from the rules above.
+
+  /**
+   * What organism i would weigh if it chose right now: every option with its terms, the option it
+   * holds and the best one. Null for an organism too new to be in the neighbour grid.
+   */
+  explain(i: number): { options: Option[]; current: number; best: number } | null {
+    if (i < 0 || !this.alive[i] || this.born[i] >= this.tick - 1 || this.tick < 2) return null;
+    const options = this.weigh(i);
+    const L = this.lord[i];
+    let current = 0;
+    let best = 0;
+    for (let q = 0; q < options.length; q++) {
+      if (options[q].lord === L) current = q;
+      if (options[q].u > options[best].u) best = q;
+    }
+    return { options, current, best };
+  }
+
+  /**
+   * A viewer removes an organism from outside the model. If it ruled a realm, the ordinary
+   * succession test opens. The chronicle records the strike so the history stays honest.
+   */
+  strike(slot: number): boolean {
+    if (slot < 0 || !this.alive[slot]) return false;
+    const rid = this.lord[slot] < 0 ? this.realmOf[slot] : NONE;
+    const who = rid >= 0 ? `the ruler of ${this.realms[rid].name}` : `a ${TRIBE_NAMES[this.tribe[slot]]} organism`;
+    this.emit('hand', `A hand from outside the world removes ${who}.`);
+    this.strikes++;
+    this.kill(slot);
+    return true;
+  }
+
+  /** Mean distance of a ruler's members from their centre, in perception radii (as in openSuccession). */
+  cohesion(rootSlot: number): number {
+    if (rootSlot < 0 || !this.alive[rootSlot]) return NaN;
+    const members: number[] = [];
+    const stack: number[] = [];
+    for (let c = this.firstChild[rootSlot]; c >= 0; c = this.nextSib[c]) stack.push(c);
+    let cx = 0;
+    let cy = 0;
+    let cz = 0;
+    while (stack.length) {
+      const k = stack.pop()!;
+      members.push(k);
+      cx += this.pos[3 * k];
+      cy += this.pos[3 * k + 1];
+      cz += this.pos[3 * k + 2];
+      for (let c = this.firstChild[k]; c >= 0; c = this.nextSib[c]) stack.push(c);
+    }
+    const n = members.length;
+    if (!n) return NaN;
+    cx /= n;
+    cy /= n;
+    cz /= n;
+    let spread = 0;
+    for (const k of members) spread += Math.hypot(this.pos[3 * k] - cx, this.pos[3 * k + 1] - cy, this.pos[3 * k + 2] - cz);
+    return spread / n / this.p.senseRadius;
+  }
+
+  /** Succession tests in progress, with how far each realm has regrouped so far. */
+  watching(): SuccessionWatch[] {
+    return this.pending.map((ps) => {
+      const counts = new Map<number, number>();
+      let alive = 0;
+      let x = 0;
+      let y = 0;
+      let z = 0;
+      const slots: number[] = [];
+      for (let q = 0; q < ps.slots.length; q++) {
+        const k = ps.slots[q];
+        if (!this.alive[k] || this.uid[k] !== ps.uids[q]) continue;
+        alive++;
+        slots.push(k);
+        x += this.pos[3 * k];
+        y += this.pos[3 * k + 1];
+        z += this.pos[3 * k + 2];
+        const r = this.rootOf(k);
+        counts.set(r, (counts.get(r) ?? 0) + 1);
+      }
+      let best = 0;
+      for (const n of counts.values()) if (n > best) best = n;
+      const realm = this.realms[ps.realm];
+      const d = Math.max(1, alive);
+      return {
+        realm: ps.realm, name: realm.name, tribe: realm.tribe, start: ps.due - this.p.govWindow, due: ps.due,
+        members: ps.slots.length, alive, slots, keep: best / Math.max(1, ps.slots.length), x: x / d, y: y / d, z: z / d,
+      };
+    });
   }
 }
 

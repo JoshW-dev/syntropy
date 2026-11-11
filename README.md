@@ -32,6 +32,17 @@ Levels can only be reached in order.
 - Hovering an organism traces its chain of command and shows its rank, size and age.
 - The Look menu switches between Paper (the default), Night, Blueprint, Ink and Nebula. The Environment panel changes food, fighting, tribute, kinship, control loss, lifespan and choice noise live, and the URL carries your settings.
 
+## Looking inside
+
+Everything here reads the simulation and changes nothing in it, except the one button that removes a ruler.
+
+- **Captions and a guided camera.** A narrator says what just happened and why no rule asked for it, and the camera moves in on it. The Look menu switches off the captions, the guided camera and the slow rotation (`R`).
+- **Realms.** The list under the ladder shows each realm with its members, its ranks and the lineages inside it. Pointing at a row lights that realm and pales the rest, and a click follows its ruler.
+- **One organism's choice.** Clicking an organism opens a card with every option it can see and the score of each: its odds of winning nearby, times the share it keeps after tribute, times the control left through the ranks above it. A lens on the world draws how far it sees and a line to each lord it could follow. The card also lists the chain of command above it and its direct followers, and each of those can be picked.
+- **Remove a ruler.** A ruler's card has a button that removes it. Time slows, its former members light up, and a meter shows how much of the realm has regrouped under one new ruler against the 60% line. The strike goes into the link as `?k=`, so a shared link replays the same history.
+- **History.** The History button draws the world as it happens. Each realm that grew to 15 or more is a band as tall as its members, with a mark for every ruler's death. A click pins a year and replays the world from its seed up to that year, and the chart saves as an image.
+- **The paper beside the world.** In the side pane the paper has buttons that run its claims in the world on the left: set fear to 0, start again with no fights, remove the largest realm's ruler. Two of its figures draw the running world over the 48-world result.
+
 ## The paper
 
 [Syntropy: From Cells to Government](https://syntropy-sim.vercel.app/paper/) is the full write-up: the model, the derivation of the allegiance rule (the Kelly criterion applied to Hobbes' bargain), the measurements, and the experiments. Those are a 48-world baseline, ablations of every ingredient, a phase diagram over fear and tribute, an analysis of what makes a realm survive its ruler, and the search behind the lattice rule. Every number in it is filled in from the experiment output when the paper is built.
@@ -78,7 +89,7 @@ npm install
 npm run dev
 ```
 
-`npm run build` writes a static site to `dist/`, with the simulation and the paper. It's Vite and Three.js with no server code, so a visit costs a few hundred kilobytes of static transfer and nothing else. On screens 1180px and wider the paper opens beside the world, and the divider drags to resize it or folds either side away. Space pauses, `N` makes a new world, `H` hides the interface, `P` folds the paper, and `1` to `4` set the speed.
+`npm run build` writes a static site to `dist/`, with the simulation and the paper. It's Vite and Three.js with no server code, so a visit costs a few hundred kilobytes of static transfer and nothing else. On screens 1180px and wider the paper opens beside the world, and the divider drags to resize it or folds either side away. Space pauses, `N` makes a new world, `H` hides the interface, `P` folds the paper, `R` stops or starts the rotation, and `1` to `4` set the speed.
 
 ## Layout
 
@@ -87,7 +98,7 @@ npm run dev
 - `src/sim/world.ts` joins the two levels into one continuous world.
 - `src/sim/score.ts` turns a run into numbers and a score.
 - `src/render/` draws cubes, rings, lines and food, and holds the themes.
-- `src/ui/` is the ladder, chronicle, readouts and panels.
+- `src/ui/` is the ladder, chronicle, readouts and panels, plus the guide: `story.ts` (captions and the succession watch), `director.ts` (camera), `card.ts` (one organism's choice), `realms.ts`, `timeline.ts` (history) and `bridge.ts` (the paper's experiments).
 - `scripts/` holds the headless runner, sweep, experiments, figures and the paper build.
 - `paper/` is the paper source, data and figures.
 

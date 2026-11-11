@@ -118,11 +118,23 @@ body {
 
 /* ---------- ladder ---------- */
 
-.ladder {
+/* The left column: the ladder, then the realms in whatever height is left above the chronicle. */
+.left {
   position: fixed;
   top: 112px;
   left: var(--gutter);
+  bottom: 204px;
   width: 300px;
+  display: flex;
+  flex-direction: column;
+  pointer-events: none;
+  transition:
+    opacity 0.25s ease,
+    visibility 0.25s;
+}
+
+.ladder {
+  flex: none;
   margin: 0;
   padding: 0;
   list-style: none;
@@ -184,6 +196,11 @@ body {
   opacity: 0.35;
 }
 
+/* the level the world has not reached yet, but is heading for */
+.step[data-state='up'] {
+  opacity: 0.62;
+}
+
 .head {
   display: flex;
   align-items: baseline;
@@ -222,7 +239,7 @@ body {
 }
 
 .step[data-state='now'] .rule,
-.step[data-state='now'] .crit {
+.step[data-state='up'] .crit {
   display: block;
 }
 
@@ -285,7 +302,9 @@ body {
   padding: 0 14px;
   border: 0;
   border-radius: 6px;
-  background: var(--press);
+  /* The tint sits on the ground colour, so a button stays solid when the camera moves in and
+     organisms pass behind it. */
+  background: linear-gradient(var(--press), var(--press)) var(--ground);
   color: var(--ink);
   font: 500 14px/1 var(--sans);
   cursor: pointer;
@@ -293,7 +312,7 @@ body {
 }
 
 .btn:hover {
-  background: var(--press-hover);
+  background: linear-gradient(var(--press-hover), var(--press-hover)) var(--ground);
 }
 
 .btn.icon {
@@ -473,7 +492,7 @@ a:focus-visible {
 }
 
 .btn.duo[aria-expanded='true'] {
-  background: var(--press-hover);
+  background: linear-gradient(var(--press-hover), var(--press-hover)) var(--ground);
 }
 
 .btn:disabled {
@@ -867,7 +886,7 @@ a:focus-visible {
     visibility 0.25s;
 }
 
-.ui-hidden :is(.mast, .ladder, .chronicle, .controls, .readout, .labels, .tip, .foot, .env) {
+.ui-hidden :is(.mast, .left, .chronicle, .controls, .readout, .labels, .tip, .foot, .env, .side, .lens, .history) {
   opacity: 0;
   visibility: hidden;
 }
@@ -1058,9 +1077,14 @@ a:focus-visible {
   }
 
   /* On a phone the ladder shows only the current level, as "Level N of 5". */
+  .left {
+    display: contents;
+  }
+
   .ladder {
+    position: fixed;
     top: 48px;
-    width: auto;
+    left: var(--gutter);
     right: var(--gutter);
   }
 
@@ -1159,10 +1183,646 @@ a:focus-visible {
   }
 }
 
+/* The guided camera moves in on things, so organisms can pass behind any text. A halo in the ground
+   colour keeps the ladder, the realms, the chronicle and the readout legible over them. */
+.left,
+.chronicle,
+.readout {
+  text-shadow:
+    0 0 2px var(--ground),
+    0 0 4px var(--ground),
+    0 0 8px var(--ground);
+}
+
+/* ---------- the guide: narrator, realms, one organism ---------- */
+
+/* One column under the controls. It holds a running experiment, the narrator's caption, and then
+   either the list of realms or the card for a picked organism. Each block sits on the same
+   near-opaque ground as the hover tip, so its text reads over the world behind it. */
+.side {
+  position: fixed;
+  top: 84px;
+  right: var(--gutter);
+  bottom: 196px;
+  z-index: 8;
+  width: 300px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  pointer-events: none;
+  transition:
+    opacity 0.25s ease,
+    visibility 0.25s;
+}
+
+.card-open .side {
+  bottom: 56px;
+}
+
+.card-open .readout,
+.hist-open :is(.chronicle, .readout, .foot) {
+  opacity: 0;
+  visibility: hidden;
+}
+
+.side > * {
+  flex: none;
+  padding: 11px 14px 12px;
+  border-radius: 10px;
+  background: var(--tip);
+  pointer-events: auto;
+}
+
+.side > [hidden] {
+  display: none;
+}
+
+.exp {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 4px 6px 4px 14px;
+  font-size: 13px;
+  color: var(--heading);
+  box-shadow: inset 3px 0 0 var(--t1);
+}
+
+.caption.in {
+  animation: arrive 0.45s ease-out;
+}
+
+.cap-k {
+  margin: 0;
+  font: 500 14px/1.4 var(--sans);
+  color: var(--heading);
+}
+
+.cap-k b,
+.cap-b b {
+  font-weight: 500;
+}
+
+.cap-b {
+  margin: 3px 0 0;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+#cap-act {
+  margin: 4px 0 -4px -8px;
+}
+
+/* the regroup meter: how much of an orphaned realm stands under one new ruler */
+.meter {
+  margin-top: 10px;
+}
+
+.meter-track {
+  position: relative;
+  height: 6px;
+  border-radius: 3px;
+  background: var(--trough);
+}
+
+.meter-fill {
+  height: 100%;
+  max-width: 100%;
+  border-radius: 3px;
+  background: var(--control);
+  transition: width 0.25s linear;
+}
+
+.meter-fill.over {
+  background: var(--t3);
+}
+
+.meter-mark {
+  position: absolute;
+  top: -4px;
+  bottom: -4px;
+  width: 2px;
+  margin-left: -1px;
+  background: var(--ink);
+}
+
+.meter-read {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 7px;
+  font-size: 12px;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+
+/* the realms: the legend for the picture. Rows that do not fit above the chronicle are cut, and
+   they are the smallest realms. */
+.realms {
+  flex: 0 1 auto;
+  min-height: 0;
+  margin-top: 6px;
+  overflow: hidden;
+  pointer-events: auto;
+}
+
+.realms[hidden] {
+  display: none;
+}
+
+.realms .pop-h,
+.card .pop-h {
+  margin: 0 0 2px;
+}
+
+.realm-row.sel {
+  background: var(--press);
+}
+
+.pop-h span {
+  float: right;
+}
+
+.realm-row {
+  display: grid;
+  grid-template-columns: 8px minmax(0, 1fr) 54px 28px 50px;
+  align-items: center;
+  gap: 8px;
+  height: 27px;
+  margin: 0 -6px;
+  padding: 0 6px;
+  border-radius: 6px;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.realm-row:hover,
+.realm-row:focus-visible {
+  background: var(--press-hover);
+  outline: none;
+}
+
+.realm-name {
+  overflow: hidden;
+  font-weight: 500;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.realm-mix {
+  display: flex;
+  height: 6px;
+  overflow: hidden;
+  border-radius: 3px;
+}
+
+.realm-n {
+  text-align: right;
+  color: var(--figure);
+  font-variant-numeric: tabular-nums;
+}
+
+.realm-d {
+  font-size: 12px;
+  color: var(--muted);
+  white-space: nowrap;
+}
+
+.realm-row.out .realm-name {
+  grid-column: 2 / 4;
+  font-weight: 400;
+  color: var(--text);
+}
+
+.realm-row.out .realm-mix {
+  display: none;
+}
+
+.realm-row.out .opt-dot {
+  box-shadow: inset 0 0 0 1.5px var(--muted);
+}
+
+.realms-rest {
+  margin: 4px 0 0;
+  font-size: 12px;
+  line-height: 1.45;
+  color: var(--muted);
+}
+
+/* one organism: what it is, what it weighs, who is above and below it */
+.card {
+  flex: 0 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+.card-bar {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: -6px 0 2px -8px;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.card-chain {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.card-chain b {
+  font-weight: 500;
+  color: var(--heading);
+}
+
+.pick {
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.card-t {
+  margin: 0;
+  font: 500 15px/1.4 var(--sans);
+  color: var(--heading);
+}
+
+.card-t b {
+  font-weight: 500;
+}
+
+.card-t span {
+  font-weight: 400;
+  font-size: 13px;
+  color: var(--muted);
+  margin-left: 4px;
+}
+
+.card-s {
+  margin: 2px 0 0;
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.card-s b {
+  font-weight: 500;
+}
+
+.card-s.dim,
+.card-note {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.card .pop-h {
+  margin-top: 10px;
+}
+
+.opt-row {
+  padding: 7px 0 6px;
+  border-top: 1px solid var(--trough);
+}
+
+.opt-top {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  font-size: 13px;
+  line-height: 1.35;
+}
+
+.opt-dot {
+  flex: none;
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+}
+
+.opt-dot.none {
+  box-shadow: inset 0 0 0 1.5px var(--muted);
+}
+
+.opt-name {
+  flex: 1;
+}
+
+.opt-name b {
+  font-weight: 500;
+}
+
+.opt-name span {
+  color: var(--muted);
+  white-space: nowrap;
+}
+
+.opt-score {
+  font-weight: 500;
+  color: var(--figure);
+  font-variant-numeric: tabular-nums;
+}
+
+.opt-bar {
+  height: 4px;
+  margin: 5px 0 4px 16px;
+  overflow: hidden;
+  border-radius: 2px;
+  background: var(--trough);
+}
+
+.opt-bar i {
+  display: block;
+  height: 100%;
+  border-radius: 2px;
+  background: var(--muted);
+}
+
+.opt-row.cur .opt-bar i {
+  background: var(--ink);
+}
+
+.opt-why {
+  margin-left: 16px;
+  font-size: 12px;
+  line-height: 1.4;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.opt-why em {
+  display: block;
+  font-style: normal;
+  font-weight: 500;
+  color: var(--heading);
+}
+
+.card-note {
+  margin: 8px 0 0;
+  padding-top: 8px;
+  border-top: 1px solid var(--trough);
+  line-height: 1.45;
+}
+
+.kid {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  padding: 3px 0;
+  font-size: 13px;
+  text-decoration: none;
+}
+
+.kid:hover {
+  background: var(--press);
+}
+
+.kid b {
+  font-weight: 500;
+}
+
+.kid .kid-n {
+  margin-left: auto;
+  color: var(--muted);
+}
+
+.card-rule {
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px solid var(--trough);
+}
+
+.card-rule .btn {
+  height: 36px;
+  margin: 8px 0 4px;
+}
+
+.card-log p {
+  margin: 6px 0 0;
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+.card-log span {
+  margin-right: 6px;
+  color: var(--muted);
+}
+
+/* the lens: drawn over the world for the picked organism */
+.lens {
+  position: fixed;
+  inset: 0;
+  z-index: 4;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+
+#lens-me {
+  fill: none;
+  stroke: var(--ink);
+  stroke-width: 1.5;
+}
+
+#lens-sight {
+  fill: none;
+  stroke: var(--muted);
+  stroke-width: 1;
+  stroke-dasharray: 2 5;
+}
+
+#lens-lines line {
+  stroke-width: 1.2;
+  stroke-dasharray: 4 4;
+  opacity: 0.85;
+}
+
+#lens-lines line.cur {
+  stroke-width: 2.2;
+  stroke-dasharray: none;
+}
+
+.label {
+  pointer-events: auto;
+  cursor: pointer;
+}
+
+.tip i {
+  font-style: normal;
+  color: var(--muted);
+}
+
+.ev-hand {
+  color: var(--heading);
+}
+
+/* ---------- this world's history ---------- */
+
+.history {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 26;
+  height: min(320px, 46%);
+  padding: 12px var(--gutter) 10px;
+  display: flex;
+  flex-direction: column;
+  background: var(--ground);
+  border-top: 1px solid var(--trough);
+}
+
+.history[hidden] {
+  display: none;
+}
+
+.hist-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.hist-head h2 {
+  margin: 0;
+  font: 600 16px/1.3 var(--display);
+  color: var(--heading);
+}
+
+.hist-head p {
+  margin: 1px 0 0;
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.hist-acts {
+  display: flex;
+  gap: 8px;
+}
+
+.hist-acts .btn {
+  height: 36px;
+}
+
+.hist-acts .btn.icon {
+  width: 36px;
+  padding: 0;
+  display: grid;
+  place-items: center;
+}
+
+.hist-plot {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  margin-top: 4px;
+}
+
+#hist-canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+  cursor: crosshair;
+}
+
+.hist-tip {
+  position: absolute;
+  top: 2px;
+  max-width: 240px;
+  padding: 7px 10px;
+  border-radius: 6px;
+  background: var(--tip);
+  font-size: 12px;
+  line-height: 1.5;
+  pointer-events: none;
+}
+
+.hist-tip b {
+  font-weight: 500;
+}
+
+.hist-tip i {
+  font-style: normal;
+  color: var(--muted);
+}
+
+.hist-key {
+  margin: 4px 0 0;
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--muted);
+}
+
+.hist-key i {
+  display: inline-block;
+  margin: 0 5px 0 10px;
+  vertical-align: 0;
+}
+
+.k-dot,
+.k-ring {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  box-shadow: inset 0 0 0 1.2px var(--ink);
+}
+
+.k-dot {
+  background: var(--ink);
+}
+
+.k-tri {
+  border: 4px solid transparent;
+  border-top: 7px solid var(--t1);
+  border-bottom: 0;
+}
+
+/* On a narrow stage the guide sits above the chronicle at full width, and a picked organism's card
+   takes the chronicle's place. The realms list would cover the world, so it gives way: realm labels
+   in the world still pick a ruler. */
+@container stage (max-width: 760px) {
+  .side {
+    top: auto;
+    left: var(--gutter);
+    right: var(--gutter);
+    bottom: 150px;
+    width: auto;
+    max-height: 52%;
+    justify-content: flex-end;
+  }
+
+  .card-open .side {
+    bottom: 96px;
+  }
+
+  .card-open .chronicle,
+  .card-open .caption {
+    display: none;
+  }
+
+  .realms,
+  .realms[hidden] {
+    display: none;
+  }
+
+  .history {
+    height: min(300px, 52%);
+    padding-bottom: 8px;
+  }
+
+  .hist-key {
+    display: none;
+  }
+
+  #hist-save {
+    display: none;
+  }
+}
+
 /* ---------- the paper beside the world ---------- */
 
 :root {
-  --pane: clamp(400px, min(42vw, 100vw - 780px), 760px);
+  --pane: clamp(400px, min(40vw, 100vw - 780px), 760px);
   --pane-now: 0px;
 }
 
@@ -1358,10 +2018,15 @@ a:focus-visible {
     animation: none;
   }
 
+  .caption.in {
+    animation: none;
+  }
+
   .env,
   .env.open,
+  .side,
   .mast,
-  .ladder,
+  .left,
   .chronicle,
   .controls,
   .readout,

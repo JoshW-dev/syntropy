@@ -150,6 +150,7 @@
       <p>
         The current choice receives a small bonus \(\beta\), and the organism picks an option with probability proportional to \(e^{U/T}\). Within one polity all candidate lords offer the same protection, so the remaining terms decide which member to attach to: a shallow one, with few direct followers, nearby.
       </p>
+      <div class="try" data-try="choice"></div>
       <h4>Derivation</h4>
       <p>
         Treat the coming period as a bet. Suppose the organism's side prevails in local conflict with probability \(p\), keeps a share \(q\) of its income after tribute, and receives protection attenuated by a factor \(\theta\) for every link of command above it. Its retained resources are then proportional to \(p\,q\,\theta^{\,d+1}\), and an agent that maximises long-run growth maximises the expected logarithm of that product, which is the Kelly criterion (Kelly 1956):
@@ -168,6 +169,7 @@
       <p>
         A polity is a tree of follow links, and its root is the ruler. Polities with five or more members are named realms, and a realm keeps its name while its ruler lives. We read the ladder from these structures. A level is only recognised after the level before it.
       </p>
+      <div class="try" data-try="deepest"></div>
       <table>
         <caption><b>Table 2.</b> Criteria for each level. All are measurements made from outside the simulation; none feeds back into it.</caption>
         <thead><tr><th>Level</th><th>Reached when</th></tr></thead>
@@ -202,6 +204,7 @@
       <p>
         The lattice peaks within a few generations as the spores react, then drains as held forms come loose (Figure 3). In the median world the first organism appeared in year {{baselineLevels.Organisms.medianYear|f1}}, and {{events.spawned|int}} forms had come loose as organisms by year {{handoff.lastSpawn.median|f1}}, while fission added {{events.births|int}} more over the run. Because the hand-off happens form by form, the cell level and the organism level overlap for about {{handoff.overlap|int}} years, and no frame of the simulation marks a boundary between them.
       </p>
+      <div class="try" data-try="handoff"></div>
 
       <h3>6.2&nbsp;&nbsp;The ladder across worlds</h3>
       <p>
@@ -220,6 +223,7 @@
       <p>
         Syntropy rises as organisms consolidate and then fluctuates around a level well below one (Figure 5). Over the second half of the runs the median world had \(\Sigma={{baselineLate.syntropyMedian|f2}}\), with {{baselineLate.organizedMedian|pct}} of organisms inside major realms, {{baselineLate.largestMedian|pct}} inside the largest realm and a median of {{baselineLate.realmsMedian|f1}} major realms. The population settled near {{baselineLate.popMedian|int}} organisms with a mean body of {{baselineLate.massMedian|f1}} cells. No world collapsed into a single empire, and none stayed anarchic. Realms keep rising and falling, which is what holds \(\Sigma\) in the middle of its range.
       </p>
+      <div class="try" data-try="history"></div>
       <div class="figure">
         <img src="./figures/order.svg" alt="Syntropy and related order parameters over time." />
         <p class="caption"><b>Figure 5.</b> Order parameters through time: the syntropy index &Sigma; (blue, median and interquartile band), the share of organisms in major realms (green) and the share in the largest realm (red, dashed). 48 worlds.</p>
@@ -230,9 +234,11 @@
       <p>
         Table 4 switches off one ingredient at a time on 32 worlds each. Two ingredients are necessary. Without the allegiance choice no polity ever forms, and every organism fights every other one it touches. Without fear, the weight \(\omega\) on unallied mass in \eqref{uindep} and \eqref{ujoin}, the result is the same: an organism that fears no one has no reason to pay tribute to anyone, and the world stays anarchic. With half the fear (\(\omega=0.5\)) tribes and hierarchies still form in every world, but government appears in only {{ablations.8.government|pct}} of them and about twice as late, with less order and four times as many fights, because organisms stay independent longer and collide.
       </p>
+      <div class="try" data-try="no-fear"></div>
       <p>
         Everything else is optional for the ladder. With fights switched off entirely there are no conquests at all, yet the median world still reaches government in year {{ablations.2.tGov|f1}}, against {{ablations.0.tGov|f1}} for the full model. Its hierarchies are built entirely from voluntary submission to whoever is strongest nearby. Hobbes made the same observation about the state of nature, that war &ldquo;consisteth not in Battell onely, or the act of fighting&rdquo; (Hobbes 1651), and in the language of international relations this is the security dilemma: each actor's strength is a threat to its neighbours whatever its intentions (Herz 1950; Jervis 1978). Removing tribute, kin preference or control loss changes how much order forms rather than whether it forms. Without control loss chains of command grow to a median of {{ablations.5.maxDepth|int}} ranks and the largest realm holds {{ablations.5.largest|pct}} of the population, against {{ablations.0.maxDepth|int}} ranks and {{ablations.0.largest|pct}} with it.
       </p>
+      <div class="try" data-try="no-fights no-control-loss"></div>
       <table>
         <caption><b>Table 4.</b> Ablations, 32 worlds per condition over 120 years. Shares of worlds that reached each level; median syntropy and median deepest chain over the second half; median year each level was reached.</caption>
         <thead><tr><th>Condition</th><th class="num">Tribes</th><th class="num">Hier.</th><th class="num">Gov.</th><th class="num">&Sigma;</th><th class="num">Depth</th><th class="num">Fights</th><th class="num">Gov. year</th></tr></thead>
@@ -256,6 +262,7 @@
       <p>
         Fear and tribute pull in opposite directions. Fear makes standing alone expensive, and tribute makes joining expensive. Crossing nine values of \(\omega\) with seven tribute rates, ten worlds per cell, gives the phase diagram in Figure 6. At \(\omega=0\) nothing forms at any tribute rate. As fear rises the world passes through four regimes: anarchy, kin chiefdoms only, hierarchies without government, and government. The boundary of each moves to higher tribute as fear grows. At the tuned fear \(\omega=1\) government appears in nine or ten of every ten worlds up to \(\tau=0.6\), in {{phaseFear.gov.7.5|pct}} of them at \(\tau=0.75\) and in none at \(\tau=0.9\), and syntropy falls steadily with tribute at every level of fear.
       </p>
+      <div class="try" data-try="high-tribute"></div>
       <div class="figure">
         <div class="pair">
           <img src="./figures/phase-fear-gov.svg" alt="Share of worlds reaching government over fear and tribute." />
@@ -282,6 +289,7 @@
       <p>
         Across the 48 worlds, {{succession.n|int}} rulers of realms with 20 or more members died, and {{succession.survived|int}} of those realms passed the succession test. We expected the outcome to depend on how concentrated power was when the ruler died, since a dominant branch would seem to give the orphans an obvious place to converge. It does not. The survival rate is close to flat across the share of the realm held by its largest direct branch, from about a fifth to nearly all of it (Figure 7, left). What predicts survival is geometry. Realms whose members sat within 0.8 perception radii of their centre on average passed the test {{succession.bySpread.1.rate|pct}} of the time, against {{succession.bySpread.2.rate|pct}} for realms spread to between 0.8 and 1.2 radii, and almost no realm spread wider (Figure 7, right).
       </p>
+      <div class="try" data-try="kill-king"></div>
       <div class="figure">
         <div class="pair">
           <img src="./figures/succession-heir.svg" alt="Survival rate against the largest branch's share: roughly flat." />

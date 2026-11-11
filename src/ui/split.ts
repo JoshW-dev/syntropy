@@ -48,6 +48,11 @@ export class Split {
     if (this.wide.matches) this.set(this.layout === 'split' ? 'sim' : 'split');
   }
 
+  /** Make sure the world is on screen (the paper asked it to do something). */
+  reveal(): void {
+    if (this.wide.matches && this.layout === 'paper') this.set('split');
+  }
+
   private set(layout: Layout): void {
     this.layout = layout;
     // Folding the world away is for this visit; the next one opens side by side again.

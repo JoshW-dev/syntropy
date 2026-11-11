@@ -25,6 +25,8 @@ export interface Label {
   name: string;
   size: number;
   tribe: number;
+  /** The ruler's slot, so a click on the label can pick it. */
+  slot: number;
 }
 
 const $ = <T extends HTMLElement>(id: string) => document.getElementById(id) as T;
@@ -83,11 +85,18 @@ export class Hud {
     document.querySelector('meta[name="theme-color"]')?.setAttribute('content', theme.ground);
   }
 
-  /** `reached[i]` is the label for a reached level ("gen 64", "year 12") or null. */
+  /**
+   * `reached[i]` is the label for a reached level ("gen 64", "year 12") or null. The highest level
+   * reached is where the world is now, and it shows its rule. The level after it shows what would
+   * count as reaching it. So a fresh world reads as Cells, with Organisms as the next thing to watch for.
+   */
   setLadder(reached: (string | null)[]): void {
-    const now = reached.findIndex((r) => r === null);
+    let now = 0;
+    reached.forEach((r, i) => {
+      if (r !== null) now = i;
+    });
     this.rows.forEach((li, i) => {
-      const state = reached[i] !== null ? 'done' : i === now ? 'now' : 'next';
+      const state = i < now ? 'done' : i === now ? 'now' : i === now + 1 ? 'up' : 'next';
       if (li.dataset.state !== state) li.dataset.state = state;
       const when = li.querySelector('.when')!;
       const text = reached[i] ?? '';
@@ -138,7 +147,8 @@ export class Hud {
     this.lines.forEach((el, i) => (el.style.opacity = String([1, 0.7, 0.45, 0.28, 0.16][n - 1 - i] ?? 0.1)));
   }
 
-  private colorize(text: string): string {
+  /** Escape a line of chronicle text and colour the realm and tribe names in it. */
+  colorize(text: string): string {
     const esc = text.replace(/[&<>]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' })[c]!);
     // Realm and tribe names are capitalised words; colour each one that we know.
     return esc.replace(/\b[A-Z][a-z]+\b/g, (m) => {
@@ -179,6 +189,7 @@ export class Hud {
       el.style.transform = `translate(${l.x.toFixed(1)}px, ${l.y.toFixed(1)}px) translate(-50%, -100%)`;
       const html = `<b style="color:var(--t${l.tribe})">${l.name}</b> <span>${l.size}</span>`;
       if (el.innerHTML !== html) el.innerHTML = html;
+      el.dataset.slot = String(l.slot);
     });
   }
 

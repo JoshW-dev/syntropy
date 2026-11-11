@@ -9,8 +9,15 @@ import { load, readQuery, save, writeQuery } from './query.ts';
 const LOOK_KEY = 'syntropy.look';
 const SHOW_KEY = 'syntropy.show';
 
-type Layer = 'chronicle' | 'lines' | 'rings' | 'food';
-const LAYERS: Layer[] = ['chronicle', 'lines', 'rings', 'food'];
+type Layer = 'chronicle' | 'lines' | 'rings' | 'food' | 'captions' | 'camera' | 'spin';
+const LAYERS: Layer[] = ['chronicle', 'lines', 'rings', 'food', 'captions', 'camera', 'spin'];
+
+/** The Guide switches act outside the renderer: the narrator, the guided camera and the slow turn. */
+export interface Guide {
+  captions(on: boolean): void;
+  camera(on: boolean): void;
+  spin(on: boolean): void;
+}
 
 const $ = <T extends HTMLElement>(id: string) => document.getElementById(id) as T;
 
@@ -21,14 +28,20 @@ export class View {
   private pop = $<HTMLDivElement>('look-pop');
   private showBtn = $<HTMLButtonElement>('show-ui');
   private radios: HTMLInputElement[] = [];
+  private boxes = new Map<Layer, HTMLInputElement>();
+  private shown: Record<Layer, boolean>;
+  private guide: Guide;
+  private stillByDefault: boolean;
   private hidden = false;
   /** Called before the UI hides, so other panels can close. */
   onHide: () => void = () => undefined;
   /** Called when the popover opens, so the Environment panel can make room. */
   onOpen: () => void = () => undefined;
 
-  constructor(app: App) {
+  constructor(app: App, guide: Guide, reducedMotion: boolean) {
     this.app = app;
+    this.guide = guide;
+    this.stillByDefault = reducedMotion;
     this.buildList();
 
     // A link's ?look= wins over this browser's last choice; either one goes into the address.
@@ -36,9 +49,10 @@ export class View {
     const theme = fromLink ?? themeById(load(LOOK_KEY)) ?? PAPER;
     this.setLook(theme, false);
 
-    const shown = this.loadShown();
+    const shown = (this.shown = this.loadShown());
     for (const box of this.pop.querySelectorAll<HTMLInputElement>('input[data-show]')) {
       const layer = box.dataset.show as Layer;
+      this.boxes.set(layer, box);
       box.checked = shown[layer];
       this.applyLayer(layer, shown[layer]);
       box.addEventListener('change', () => {
@@ -70,6 +84,16 @@ export class View {
     for (const r of this.radios) r.checked = r.value === theme.id;
     writeQuery('look', theme === PAPER ? null : theme.id);
     if (remember) save(LOOK_KEY, theme === PAPER ? null : theme.id);
+  }
+
+  /** Flip one switch from the keyboard, keeping its checkbox and this browser's memory in step. */
+  flip(layer: Layer): void {
+    const on = !this.shown[layer];
+    this.shown[layer] = on;
+    const box = this.boxes.get(layer);
+    if (box) box.checked = on;
+    this.applyLayer(layer, on);
+    save(SHOW_KEY, JSON.stringify(this.shown));
   }
 
   openLook(): void {
@@ -137,11 +161,14 @@ export class View {
 
   private applyLayer(layer: Layer, on: boolean): void {
     if (layer === 'chronicle') document.documentElement.classList.toggle('no-chronicle', !on);
+    else if (layer === 'captions' || layer === 'camera' || layer === 'spin') this.guide[layer](on);
     else this.app.setShow(layer, on);
   }
 
   private loadShown(): Record<Layer, boolean> {
-    const shown = { chronicle: true, lines: true, rings: true, food: true };
+    // With reduced motion asked for, the camera stays still unless the viewer turns it on.
+    const move = !this.stillByDefault;
+    const shown = { chronicle: true, lines: true, rings: true, food: true, captions: true, camera: move, spin: move };
     try {
       const saved = JSON.parse(load(SHOW_KEY) ?? '{}');
       for (const k of LAYERS) if (typeof saved[k] === 'boolean') shown[k] = saved[k];

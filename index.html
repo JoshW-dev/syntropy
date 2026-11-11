@@ -33,7 +33,15 @@
       <p>Order from simple rules</p>
     </header>
 
-    <ol class="ladder" id="ladder" aria-label="Levels of emergence"></ol>
+    <!-- The left column is the state of the world: the level it has reached, then who rules whom. -->
+    <div class="left">
+      <ol class="ladder" id="ladder" aria-label="Levels of emergence"></ol>
+      <section class="realms" id="realms" hidden aria-label="Realms">
+        <p class="pop-h" title="A ring marks a ruler. A line joins each follower to its lord. The bar shows the lineages inside each realm.">Realms<span>lineages, members, ranks</span></p>
+        <div id="realms-list"></div>
+        <p class="realms-rest" id="realms-rest" hidden></p>
+      </section>
+    </div>
 
     <section class="chronicle" id="chronicle" aria-live="polite" aria-label="Chronicle"></section>
 
@@ -50,6 +58,10 @@
       <button id="skip" class="btn" title="Skip ahead to organisms">Skip</button>
       <button id="new" class="btn" title="New world (N)" aria-label="New world">New<span class="wide"> world</span></button>
       <button id="share" class="btn" title="Copy a link to this world">Share</button>
+      <button id="hist-btn" class="btn duo" aria-label="History" aria-expanded="false" aria-controls="history" title="This world's history, drawn as it happens">
+        <svg class="ico" viewBox="0 0 20 20" width="20" height="20" aria-hidden="true"><path d="M2.5 10c2.4-4.6 5-4.6 7.5 0s5.1 4.6 7.5 0" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" /><path d="M2.5 14.5h15" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" /></svg>
+        <span class="txt">History</span>
+      </button>
       <div class="look" id="look">
         <button id="look-btn" class="btn duo" aria-label="Look" aria-expanded="false" aria-controls="look-pop" title="Look and what to show">
           <svg class="ico" viewBox="0 0 20 20" width="20" height="20" aria-hidden="true"><circle cx="10" cy="10" r="6.4" fill="none" stroke="currentColor" stroke-width="1.6" /><path d="M10 3.6a6.4 6.4 0 0 1 0 12.8z" /></svg>
@@ -67,6 +79,14 @@
               <label class="check"><input type="checkbox" data-show="lines" checked /><span class="box" aria-hidden="true"></span>Command lines</label>
               <label class="check"><input type="checkbox" data-show="rings" checked /><span class="box" aria-hidden="true"></span>Ruler rings</label>
               <label class="check"><input type="checkbox" data-show="food" checked /><span class="box" aria-hidden="true"></span>Food</label>
+            </div>
+          </div>
+          <div class="pop-group" role="group" aria-labelledby="guide-h">
+            <p class="pop-h" id="guide-h">Guide</p>
+            <div class="pop-list">
+              <label class="check"><input type="checkbox" data-show="captions" checked /><span class="box" aria-hidden="true"></span>Captions</label>
+              <label class="check"><input type="checkbox" data-show="camera" checked /><span class="box" aria-hidden="true"></span>Guided camera</label>
+              <label class="check" title="Turn the world slowly (R)"><input type="checkbox" data-show="spin" checked /><span class="box" aria-hidden="true"></span>Rotation</label>
             </div>
           </div>
           <div class="pop-group">
@@ -94,6 +114,55 @@
         <button id="env-reset" class="text-btn">Reset to defaults</button>
       </div>
     </aside>
+
+    <!-- The lens on a picked organism: how far it sees, and a line to each lord it could follow. -->
+    <svg class="lens" id="lens" aria-hidden="true" style="display: none"><circle id="lens-sight" /><g id="lens-lines"></g><circle id="lens-me" /></svg>
+
+    <!-- The right column: a running experiment, the narrator, and the card for a picked organism. -->
+    <div class="side" id="side">
+      <div class="exp" id="exp" hidden><span id="exp-text"></span><button id="exp-restore" class="text-btn">Restore</button></div>
+      <div class="caption" id="caption" hidden aria-live="polite">
+        <p class="cap-k" id="cap-k"></p>
+        <p class="cap-b" id="cap-b"></p>
+        <div class="meter" id="meter" hidden>
+          <div class="meter-track"><div class="meter-fill" id="meter-fill"></div><div class="meter-mark" id="meter-mark"></div></div>
+          <div class="meter-read"><span id="meter-a"></span><span id="meter-b"></span></div>
+        </div>
+        <button class="text-btn" id="cap-act" hidden></button>
+      </div>
+      <section class="card" id="card" hidden aria-label="The picked organism">
+        <div class="card-bar"><button id="card-close" class="text-btn" title="Close (Esc)">Close</button><span class="card-chain" id="card-chain"></span></div>
+        <div id="card-head"></div>
+        <p class="pop-h">What it weighs right now</p>
+        <div id="card-opts"></div>
+        <p class="card-note">A score multiplies its odds of winning nearby, the share it keeps after tribute and the control left through the ranks above. It takes the highest score, with a little noise. No other rule decides who follows whom.</p>
+        <div id="card-kids"></div>
+        <div class="card-rule" id="card-rule" hidden>
+          <p class="card-s" id="card-realm"></p>
+          <button id="card-strike" class="btn">Remove this ruler</button>
+          <p class="card-s dim">Nobody inherits. Its members choose again, and you can watch whether the realm holds.</p>
+        </div>
+        <div class="card-log" id="card-log"></div>
+      </section>
+    </div>
+
+    <section class="history" id="history" hidden aria-label="This world's history">
+      <div class="hist-head">
+        <div>
+          <h2 id="hist-title"></h2>
+          <p id="hist-sub"></p>
+        </div>
+        <div class="hist-acts">
+          <button id="hist-replay" class="btn" hidden></button>
+          <button id="hist-save" class="btn">Save image</button>
+          <button id="hist-close" class="btn icon" aria-label="Close history" title="Close (Esc)">
+            <svg viewBox="0 0 20 20" width="20" height="20" aria-hidden="true"><path d="M5.5 5.5l9 9M14.5 5.5l-9 9" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" /></svg>
+          </button>
+        </div>
+      </div>
+      <div class="hist-plot"><canvas id="hist-canvas"></canvas><div class="hist-tip" id="hist-tip" hidden></div></div>
+      <p class="hist-key">Each band is a realm that grew to 15 or more, in its founding lineage's colour and as tall as its members. Grey is everyone else. <i class="k-dot"></i>a realm outlived its ruler <i class="k-ring"></i>a realm ended with its ruler <i class="k-tri"></i>a ruler you removed</p>
+    </section>
 
     <button id="show-ui" class="show-ui" title="Show UI (H)" hidden>Show UI</button>
 

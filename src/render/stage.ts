@@ -13,6 +13,8 @@ export class Stage {
   readonly fog: THREE.Fog;
   /** Pixels per world unit at distance 1, for sizing point sprites. */
   pixelScale = 1;
+  /** Camera distance the field of view is fitted for. */
+  private fitDistance = 1;
   private frame: THREE.LineSegments;
   /** Floor grid for themes that ask for one; built on first use. */
   private grid: THREE.LineSegments | null = null;
@@ -25,6 +27,7 @@ export class Stage {
 
     this.camera = new THREE.PerspectiveCamera(30, 1, 0.05, 40);
     this.camera.position.set(3.3, 2.1, 3.7);
+    this.fitDistance = this.camera.position.length();
     this.fog = new THREE.Fog(INK.ground, 4.6, 9.2);
     this.scene.fog = this.fog;
 
@@ -92,8 +95,9 @@ export class Stage {
     this.renderer.setSize(w, h, false);
     const aspect = w / h;
     this.camera.aspect = aspect;
-    // Widen the vertical field of view on tall screens so the box always fits across.
-    const dist = this.camera.position.length();
+    // Widen the vertical field of view on tall screens so the box always fits across. The fit uses
+    // the starting distance, so a resize while the camera is zoomed in on something keeps the lens.
+    const dist = this.fitDistance;
     const halfWidth = Math.atan(1.5 / dist);
     const fit = (2 * Math.atan(Math.tan(halfWidth) / aspect) * 180) / Math.PI;
     this.camera.fov = Math.min(68, Math.max(30, fit));

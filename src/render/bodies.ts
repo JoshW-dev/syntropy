@@ -101,6 +101,17 @@ export class Bodies {
   drawn = 0;
   readonly screen: Float32Array;
   show = { lines: true, rings: true, food: true };
+  /**
+   * Spotlight: when set, every organism outside it is drawn paler, so one realm (or one set of
+   * organisms) can be followed. `spotMask` marks the lit slots with 1 and wins over `spotRoot`,
+   * which lights one ruler's whole polity. `spotDim` is how far the rest fades toward the ground.
+   */
+  spotRoot = -1;
+  spotMask: Uint8Array | null = null;
+  spotDim = 0.7;
+  private ground: [number, number, number] = [1, 1, 1];
+  /** Eased 0 to 1, so the spotlight fades in and out instead of snapping. */
+  private spotLevel = 0;
 
   private centers: Float32Array;
   /** Current drawn drop of each society slot, eased toward HANG * rank. */
@@ -255,6 +266,7 @@ export class Bodies {
   setTheme(t: Theme): void {
     this.fills = t.fills.map(hexToRgb);
     this.strokes = t.strokes.map(hexToRgb);
+    this.ground = hexToRgb(t.ground);
     this.cubes.setTheme(t);
     this.ringMat.uniforms.uInk.value.set(t.ring ?? t.outline);
     this.ringMat.uniforms.uGround.value.set(t.ground);
@@ -297,8 +309,16 @@ export class Bodies {
       }
     }
     const drawnY = (i: number) => Math.max(FLOOR, lerp(i, 1) - hang[i]);
+    const mask = this.spotMask;
+    const spot = this.spotRoot;
+    const spotOn = !!mask || spot >= 0;
+    this.spotLevel += ((spotOn ? 1 : 0) - this.spotLevel) * 0.14;
+    const fade = this.spotLevel < 0.01 ? 0 : this.spotDim * this.spotLevel;
+    const g = this.ground;
     for (let i = 0; i < M; i++) {
       if (!alive[i]) continue;
+      // While the spotlight fades out nothing is marked any more, so every body brightens together.
+      const dim = !spotOn ? fade : mask ? (mask[i] === 1 ? 0 : fade) : root[i] === spot || i === spot ? 0 : fade;
       const cx = lerp(i, 0);
       const cy = drawnY(i);
       const cz = lerp(i, 2);
@@ -326,9 +346,9 @@ export class Bodies {
         offsets[3 * n] = cx + body[base + 3 * q] * unit;
         offsets[3 * n + 1] = cy + body[base + 3 * q + 1] * unit;
         offsets[3 * n + 2] = cz + body[base + 3 * q + 2] * unit;
-        colors[3 * n] = fill[0];
-        colors[3 * n + 1] = fill[1];
-        colors[3 * n + 2] = fill[2];
+        colors[3 * n] = fill[0] + (g[0] - fill[0]) * dim;
+        colors[3 * n + 1] = fill[1] + (g[1] - fill[1]) * dim;
+        colors[3 * n + 2] = fill[2] + (g[2] - fill[2]) * dim;
         scales[n] = sc * 0.84;
         n++;
       }
@@ -340,7 +360,7 @@ export class Bodies {
           this.ringPos[3 * nr + 1] = cy;
           this.ringPos[3 * nr + 2] = cz;
           this.ringSize[nr] = s.radius[i] * 3.2 * DRAW_SCALE + 0.03;
-          this.ringStrength[nr] = Math.min(1, 0.3 + (followers - p.realmMin) / 25);
+          this.ringStrength[nr] = Math.min(1, 0.3 + (followers - p.realmMin) / 25) * (1 - 0.8 * dim);
           nr++;
         }
       } else if (alive[L]) {
@@ -353,9 +373,9 @@ export class Bodies {
         this.linePos[o + 5] = lerp(L, 2);
         const r = root[i] >= 0 && alive[root[i]] ? root[i] : L;
         const st = this.strokes[tribe[r]];
-        this.lineCol[o] = this.lineCol[o + 3] = st[0];
-        this.lineCol[o + 1] = this.lineCol[o + 4] = st[1];
-        this.lineCol[o + 2] = this.lineCol[o + 5] = st[2];
+        this.lineCol[o] = this.lineCol[o + 3] = st[0] + (g[0] - st[0]) * dim;
+        this.lineCol[o + 1] = this.lineCol[o + 4] = st[1] + (g[1] - st[1]) * dim;
+        this.lineCol[o + 2] = this.lineCol[o + 5] = st[2] + (g[2] - st[2]) * dim;
         nl++;
       }
     }

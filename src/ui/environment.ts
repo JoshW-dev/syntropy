@@ -24,9 +24,10 @@ const plain = (v: number) => `${+v.toFixed(4)}`;
 const years = (v: number) => `${+(v / TICKS_PER_YEAR).toFixed(1)} years`;
 
 const KNOBS: Knob[] = [
+  { key: 'fear', label: 'Fear', hint: 'Weight each organism gives to unallied mass nearby when it chooses whom to follow. At 0 no lord is worth its tribute, and nothing forms.', min: 0, max: 2, step: 0.05, show: plain },
   { key: 'regrow', label: 'Food regrowth', hint: 'How fast eaten food grows back.', min: 0.003, max: 0.04, step: 0.0005, show: percent },
   { key: 'fightChance', label: 'Fight chance', hint: 'How likely two touching rivals are to fight. Hungry ones fight more, kin less.', min: 0, max: 0.15, step: 0.005, show: percent },
-  { key: 'tribute', label: 'Tribute', hint: 'Share of income each follower passes up to its lord.', min: 0, max: 0.6, step: 0.01, show: percent },
+  { key: 'tribute', label: 'Tribute', hint: 'Share of income each follower passes up to its lord.', min: 0, max: 0.9, step: 0.01, show: percent },
   { key: 'kinShare', label: 'Kin discount', hint: 'How much less tribute an organism pays a lord of its own tribe.', min: 0, max: 1, step: 0.01, show: percent },
   { key: 'controlLoss', label: 'Control loss', hint: 'Protection lost for each rank between a follower and its ruler. Higher keeps realms flatter.', min: 0, max: 0.3, step: 0.005, show: plain },
   { key: 'lifespan', label: 'Lifespan', hint: 'Average life of an organism. Applies to organisms born after the change.', note: 'applies to newborns', min: 1500, max: 6000, step: 50, show: years },
@@ -151,13 +152,29 @@ export class Environment {
     return true;
   }
 
+  /**
+   * Set parameters on the running world, as if the sliders had been moved: the panel, the next
+   * restart and the page link all follow. Used by the paper's experiments.
+   */
+  set(values: Record<string, number>): void {
+    const live = this.live();
+    for (const [key, v] of Object.entries(values)) if (typeof DEFAULTS[key] === 'number') live[key] = v;
+    this.sync();
+    this.remember();
+  }
+
+  /** The running world's value of one parameter, and its default. */
+  value(key: string): { now: number; def: number } {
+    return { now: this.live()[key], def: DEFAULTS[key] };
+  }
+
   /** The running world's parameters; writing a field takes effect on the next tick. */
   private live(): Record<string, number> {
     return this.app.world.society.p as unknown as Record<string, number>;
   }
 
   /** Show the running world's values. */
-  private sync(): void {
+  sync(): void {
     const live = this.live();
     for (const row of this.rows) {
       const v = live[row.knob.key];
