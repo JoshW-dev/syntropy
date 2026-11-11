@@ -114,12 +114,13 @@
           <svg viewBox="0 0 20 20" width="20" height="20" aria-hidden="true"><path d="M5.5 5.5l9 9M14.5 5.5l-9 9" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" /></svg>
         </button>
       </div>
-      <p class="env-note">Sliders apply now, food and water on restart. Share links keep them all.</p>
+      <p class="env-note">Sliders apply now. Food, water and climate apply on restart. Share links keep them all.</p>
       <!-- The fingerprint: this world's society measured from outside. Nothing reads it back. -->
       <section class="fp" id="fp" aria-labelledby="fp-h">
         <p class="pop-h" id="fp-h" title="Measurements of the running world. No rule reads them.">This world, measured<span id="fp-when"></span></p>
         <dl class="fp-list" id="fp-list"></dl>
         <table class="fp-table" id="fp-table"></table>
+        <p class="fp-cycle" id="fp-cycle" hidden></p>
       </section>
       <section class="food" aria-labelledby="food-h">
         <p class="pop-h" id="food-h">Food map<span id="food-when">applies on restart</span></p>
@@ -131,6 +132,12 @@
         <div class="food-maps" id="water-maps" role="radiogroup" aria-labelledby="water-h"></div>
         <p class="food-hint" id="water-hint"></p>
         <div id="food-knob"></div>
+      </section>
+      <section class="food" aria-labelledby="climate-h">
+        <p class="pop-h" id="climate-h" title="Food capacity rises and falls everywhere on one slow cycle. Nothing else about the climate enters a rule.">Climate<span id="climate-when">applies on restart</span></p>
+        <div class="food-maps climates" id="climate-maps" role="radiogroup" aria-labelledby="climate-h"></div>
+        <div class="food-maps climates" id="climate-periods" role="radiogroup" aria-label="Length of one cycle" hidden></div>
+        <p class="food-hint" id="climate-hint"></p>
       </section>
       <p class="pop-h env-rules">Rules<span>apply now</span></p>
       <div id="env-knobs"></div>
@@ -186,7 +193,7 @@
         </div>
       </div>
       <div class="hist-plot"><canvas id="hist-canvas"></canvas><div class="hist-tip" id="hist-tip" hidden></div></div>
-      <p class="hist-key">Each band is a group that grew to 15 or more, in its founding lineage's colour and as tall as its members. Grey is everyone else. <i class="k-dot"></i>a group outlived its leader <i class="k-ring"></i>a group ended with its leader <i class="k-tri"></i>a leader you removed</p>
+      <p class="hist-key">Each band is a group that grew to 15 or more, in its founding lineage's colour and as tall as its members. Grey is everyone else. <i class="k-dot"></i>a group outlived its leader <i class="k-ring"></i>a group ended with its leader <i class="k-tri"></i>a leader you removed<span id="hist-food" hidden><i class="k-line"></i>the food the water can hold</span></p>
     </section>
 
     <button id="show-ui" class="show-ui" title="Show UI (H)" hidden>Show UI</button>

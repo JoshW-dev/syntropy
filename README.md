@@ -44,8 +44,9 @@ Everything here reads the simulation and changes nothing in it, except the one b
 - **One organism's choice.** Clicking an organism opens a card with every option it can see and the score of each: its odds of winning nearby, times the share it keeps after tax, times the control left through the ranks above it. A lens on the world draws how far it sees and a line to each leader it could follow. The card also lists the chain of command above it and its direct followers, and each of those can be picked.
 - **Remove a leader.** A leader's card has a button that removes it. Time slows, its former members light up, and a meter shows how much of the group has regrouped under one new leader against the 60% line. The strike goes into the link as `?k=`, so a shared link replays the same history.
 - **History.** The History button draws the world as it happens. Each group that grew to 15 or more is a band as tall as its members, with a mark for every leader's death. A click pins a year and replays the world from its seed up to that year, and the chart saves as an image.
-- **Food maps and a fingerprint.** The Environment panel has four food maps: the six fertile zones (the default, and the world the paper measured), an even plain, six tight islands, and a rich half beside a poor half. A dial sets how much food the world holds, the map applies when the world restarts, and the link carries both. Below the picker the panel measures the running society from outside: the share of organisms in groups of 15 or more, the share outside any group of 5, how many others each organism can see, the ranks below a leader, fights per 1,000 organisms, and how often a group of 20 or more outlives its leader. No rule reads the map's name or any of those numbers.
+- **Food maps and a fingerprint.** The Environment panel has four food maps: the six fertile zones (the default, and the world the paper measured), an even plain, six tight islands, and a rich half beside a poor half. A dial sets how much food the world holds, the map applies when the world restarts, and the link carries both. The panel also measures the running society from outside: the share of organisms in groups of 15 or more, the share outside any group of 5, how many others each organism can see, the ranks below a leader, fights per 1,000 organisms, and how often a group of 20 or more outlives its leader. No rule reads the map's name or any of those numbers.
 - **Clear and murky water.** The Environment panel also picks the water: the usual water, clear, murky, a murky half beside a clear half, or pockets of murk. An organism's perception radius is the base radius times the clarity of the water it sits in, and nothing else about the water enters a rule. Murky water is drawn as a faint haze, the lens on a picked organism shows how far it sees there, and a world with two waters is measured once per water, side by side.
+- **A climate cycle.** The Environment panel also picks the climate: steady (the default), a mild cycle or a strong one, over 30, 60 or 120 years. The food every cell can hold is multiplied by one number that rises and falls with the tick, between 40% and 160% of the usual when mild and between 10% and 190% when strong, and nothing else about the climate enters a rule. The food stipple swells and fades with it, a dial beside the year shows where the cycle is, the narrator reports the first fall and the first recovery, and the History chart draws the food as a thin line over the groups.
 - **The paper beside the world.** In the side pane the paper has buttons that run its claims in the world on the left: set fear to 0, start again with no fights, remove the largest group's leader. Two of its figures draw the running world over the 48-world result.
 
 ## The paper
@@ -86,6 +87,12 @@ npm run fingerprint -- --waters even,clear,murky,halves,pockets --seeds 16 --tic
 ```
 
 That does the same for each water. A world with two waters gets one more row per water, and a table of where the winners and losers of its fights sat 300 and 1,000 ticks later.
+
+```bash
+npm run fingerprint -- --climates steady,mild,strong --periods 3000,6000,12000 --seeds 16
+```
+
+That runs each climate at each cycle length for two and a half cycles. It adds the society at the low and the high of the cycle, one table by phase, and the share of groups standing at one food high that still stand at the next. With a strong 60-year cycle 5% of groups last a cycle, against 27% in a steady world over the same 60 years.
 
 ```bash
 npm run experiments

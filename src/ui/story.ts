@@ -6,14 +6,23 @@
 import * as THREE from 'three';
 import { TICKS_PER_YEAR, type App } from '../app.ts';
 import { CLEAR, CLEAREST, HALF_POOR, HALF_RICH, MURKY, type SimEvent, type SuccessionWatch } from '../sim/society.ts';
+import { lasting } from '../sim/score.ts';
 import type { Director } from './director.ts';
 
 interface Caption {
   kicker: string;
-  body: string;
+  /** The text, or a function that writes it when the caption's turn comes, so its numbers are current. */
+  body: string | (() => string);
   seconds: number;
   /** High captions wait their turn; low ones are dropped when the narrator is busy. */
   high: boolean;
+  /**
+   * A caption about a moment that passes (the climate's fall and recovery). While one waits, the
+   * caption on screen wraps up and no new succession watch starts. Once it shows it keeps the box
+   * from a watch for HOLD ms, and it leaves as soon as `fresh` turns false, so it never says "now"
+   * about a moment that is over. Without this a fast world never lets it through.
+   */
+  urgent?: boolean;
   aim?: { slot: number; uid: number };
   dist?: number;
   action?: { label: string; run: () => void };
@@ -29,6 +38,18 @@ const SLOW = 0.35;
 const STALE = 16000;
 /** Low captions keep at least this long apart (ms). */
 const LOW_GAP = 22000;
+/** A caption wraps up this long after something more important arrives (ms). */
+const WRAP_UP = 2500;
+/** An urgent caption keeps the box from a succession watch for this long (ms). */
+const HOLD = 7000;
+/**
+ * In a world with a climate cycle, the first fall is told once food is under its usual amount and
+ * this share of the most organisms seen is gone. A world that never held FALL_MIN has no fall to tell.
+ */
+const FALL_SHARE = 0.15;
+const FALL_MIN = 60;
+/** The first recovery is told once this many groups of 15 or more have formed since the low. */
+const RISE_GROUPS = 2;
 
 const $ = <T extends HTMLElement>(id: string) => document.getElementById(id) as T;
 const pct = (v: number) => `${Math.round(v * 100)}%`;
@@ -55,11 +76,17 @@ export class Story {
   private queue: Caption[] = [];
   private showing = false;
   private until = 0;
+  /** Until this time (ms) the caption on screen keeps the box from a watch the viewer did not cause. */
+  private heldUntil = 0;
+  /** For an urgent caption on screen: false once the moment it describes is over. */
+  private live: (() => boolean) | null = null;
   private lastLow = 0;
   private watch: { realm: number; viewer: boolean; name: string; tribe: number; members: number } | null = null;
   private struck = new Set<number>();
   private opened = false;
   private sawFollower = false;
+  /** The climate cycle so far: the most organisms seen, the fewest since the fall, and what was told. */
+  private cycle = { peak: 0, low: 0, lowTick: 0, fallFrom: 0, fell: false, rose: false };
   private tmp = new THREE.Vector3();
   private centre = new THREE.Vector3();
   private mask: Uint8Array | null = null;
@@ -103,6 +130,8 @@ export class Story {
     this.struck.clear();
     this.opened = false;
     this.sawFollower = false;
+    this.cycle = { peak: 0, low: 0, lowTick: 0, fallFrom: 0, fell: false, rose: false };
+    this.heldUntil = 0;
     this.lastLow = 0;
     this.app.slow = null;
     this.director.release(false);
@@ -118,7 +147,7 @@ export class Story {
     } else if (this.showing && !this.watch) {
       // Something more important happened: the caption on screen wraps up, so the story keeps pace
       // with a world that is running fast.
-      this.until = Math.min(this.until, now + 2500);
+      this.until = Math.min(this.until, now + WRAP_UP);
     }
     c.born = now;
     this.queue.push(c);
@@ -174,10 +203,10 @@ export class Story {
       if (app.world.tick < 90) {
         const c = app.params.cells;
         const list = (xs: number[]) => (xs.length === 2 ? `${xs[0]} or ${xs[1]}` : `${xs[0]} to ${xs[xs.length - 1]}`);
-        // A viewer who changed the water or the food has seen the opening line, so that change
-        // takes its place. A water comes with its own food capacity, so it speaks for both.
+        // A viewer who changed the climate, the water or the food has seen the opening line, so that
+        // change takes its place. A water comes with its own food capacity, so it speaks for both.
         this.say(
-          this.waterCaption() ?? this.foodCaption() ?? {
+          this.climateCaption() ?? this.waterCaption() ?? this.foodCaption() ?? {
             kicker: 'One rule is running', high: true, seconds: 9,
             body: `Each cell counts its 26 neighbours. A dead cell with ${list(c.birth)} live neighbours is born, and a live cell with ${list(c.survive)} survives. Nothing in this rule mentions an organism.`,
           },
@@ -195,15 +224,86 @@ export class Story {
         });
       }
     }
+    this.climateWatch();
     this.pollWatch();
     if (this.watch) return;
-    if (this.showing && now >= this.until) this.hide();
+    // An urgent caption is waiting: whatever is on screen, a watch's result included, wraps up,
+    // and sooner in a fast world, where the moment passes in a few seconds.
+    if (this.showing && this.queue.some((c) => c.urgent)) this.until = Math.min(this.until, now + WRAP_UP / Math.max(1, app.speed / 2));
+    if (this.showing && (now >= this.until || (this.live && !this.live()))) this.hide();
     while (!this.showing && this.queue.length) {
       const next = this.queue.shift()!;
       const age = now - (next.born ?? now);
       if (next.fresh && !next.fresh()) continue;
       if (age < STALE || (!this.queue.length && age < 2.5 * STALE)) this.show(next);
     }
+  }
+
+  /** What this world's climate changes, or null for the steady climate the paper measured. */
+  private climateCaption(): Caption | null {
+    const { climateSwing: swing, climatePeriod: period } = this.app.world.params.society;
+    if (!(swing > 0)) return null;
+    return {
+      kicker: 'Food rises and falls', high: true, seconds: 12,
+      body: `The food the water can hold swings between ${pct(1 - swing)} and ${pct(1 + swing)} of the usual in this world, and one cycle takes ${Math.round(period / TICKS_PER_YEAR)} years. The climate changes one thing: how much food grows back. No rule names a collapse or a recovery. The Food dial shows where the cycle is.`,
+      action: { label: 'See the measurements', run: () => this.onMeasure() },
+    };
+  }
+
+  /**
+   * The first fall and the first recovery of a world whose food rises and falls. Each is told when
+   * it shows in the count of organisms and groups, so the caption reports what was measured.
+   */
+  private climateWatch(): void {
+    const s = this.app.world.society;
+    const c = this.cycle;
+    if (!s.climateOn || c.rose) return;
+    const k = s.climateAt();
+    const period = s.p.climatePeriod;
+    if (s.count > c.peak) c.peak = s.count;
+    if (!c.fell) {
+      if (!(k < 1 && c.peak >= FALL_MIN && s.count <= (1 - FALL_SHARE) * c.peak)) return;
+      c.fell = true;
+      c.low = s.count;
+      c.lowTick = s.tick;
+      // Food fell through its usual amount at the middle of this cycle. Groups are counted from then.
+      c.fallFrom = Math.floor(s.tick / period) * period + period / 2;
+      const peak = c.peak;
+      this.say({
+        kicker: 'Food is falling', high: true, urgent: true, seconds: 12,
+        // Told only while the water still holds less than usual.
+        fresh: () => s.climateAt() < 1,
+        body: () => {
+          const turn = s.climateRising() ? 'it has started to rise again' : 'it is still falling';
+          return `The water now holds ${pct(s.climateAt())} of its usual food, and ${turn}. ${s.count} organisms are alive, down from ${peak}. Crowding falls with them. Each organism sees fewer others, so a leader's protection is worth less than its tax, and groups thin out. No rule names a collapse.`;
+        },
+      });
+      return;
+    }
+    if (s.count <= c.low) {
+      c.low = s.count;
+      c.lowTick = s.tick;
+    }
+    if (k < 1) return;
+    // Groups of 15 or more that formed after the low, largest first.
+    const fresh = () => s.standingRealms().filter((r) => r.size >= s.p.notableSize && r.founded > c.lowTick);
+    const first = fresh();
+    if (first.length < RISE_GROUPS) return;
+    c.rose = true;
+    const low = c.low;
+    const from = c.fallFrom;
+    this.say({
+      kicker: 'Food is back', high: true, urgent: true, seconds: 13, aim: { slot: first[0].sovereign, uid: s.uid[first[0].sovereign] },
+      fresh: () => s.climateAt() >= 1 && fresh().length > 0,
+      body: () => {
+        const groups = fresh();
+        const names = groups.slice(0, 2).map((r) => `<b style="color:var(--t${r.tribe})">${r.name}</b>`).join(' and ');
+        const kept = lasting(s, from, s.tick);
+        const old = kept.standing > 0 ? ` Of the ${kept.standing} group${kept.standing === 1 ? '' : 's'} that stood in year ${Math.floor(from / TICKS_PER_YEAR)}, ${kept.lasted} still stand${kept.lasted === 1 ? 's' : ''}.` : '';
+        return `The water holds ${pct(s.climateAt())} of its usual food, and ${s.count} organisms are alive, up from ${low} at the low. Each one sees more others again, so they group again. ${names} ${groups.length === 1 ? 'is a new group, with a new name' : 'are new groups, with new names'}.${old} No rule names a recovery.`;
+      },
+      action: { label: "See this world's history", run: () => this.onHistory() },
+    });
   }
 
   /** What this world's water changes, or null for the water the paper measured. */
@@ -262,6 +362,9 @@ export class Story {
     const w = list.find((x) => this.struck.has(x.realm)) ?? (this.captions ? list.find((x) => x.members >= s.p.govSize) : undefined);
     if (!w) return;
     const viewer = this.struck.has(w.realm);
+    // An urgent caption that is waiting or has just come up keeps the box. A watch the viewer caused
+    // always shows.
+    if (!viewer && (performance.now() < this.heldUntil || this.queue.some((c) => c.urgent))) return;
     this.watch = { realm: w.realm, viewer, name: w.name, tribe: w.tribe, members: w.members };
     this.queue = this.queue.filter((c) => c.high);
     const name = `<b style="color:var(--t${w.tribe})">${w.name}</b>`;
@@ -338,6 +441,8 @@ export class Story {
   }
 
   private paint(kicker: string, body: string): void {
+    this.heldUntil = 0;
+    this.live = null;
     this.kEl.innerHTML = kicker;
     this.bEl.innerHTML = body;
     this.act.hidden = true;
@@ -352,8 +457,12 @@ export class Story {
   }
 
   private show(c: Caption): void {
-    this.paint(c.kicker, c.body);
+    this.paint(c.kicker, typeof c.body === 'function' ? c.body() : c.body);
     this.until = performance.now() + c.seconds * 1000;
+    if (c.urgent) {
+      this.heldUntil = performance.now() + HOLD;
+      this.live = c.fresh ?? null;
+    }
     if (c.action) {
       this.act.textContent = c.action.label;
       this.act.hidden = false;

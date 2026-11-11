@@ -46,6 +46,7 @@ export class Hud {
   private lines: HTMLParagraphElement[] = [];
   private realmTribe = new Map<string, number>();
   private readoutKey = '';
+  private readoutExtra: HTMLElement | null = null;
 
   constructor(steps: Step[], handlers: Handlers) {
     this.setSteps(steps);
@@ -172,7 +173,15 @@ export class Hud {
         dd.textContent = v;
         return [dt, dd];
       }),
+      ...(this.readoutExtra ? [this.readoutExtra] : []),
     );
+  }
+
+  /** One more row for the readout that draws itself (the climate dial), or null for none. */
+  setReadoutExtra(row: HTMLElement | null): void {
+    this.readoutExtra?.remove();
+    this.readoutExtra = row;
+    if (row) this.readout.appendChild(row);
   }
 
   setLabels(list: Label[]): void {

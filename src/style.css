@@ -399,6 +399,62 @@ a:focus-visible {
   font-variant-numeric: tabular-nums;
 }
 
+/* The climate dial: one more readout row, with one cycle of the food drawn as a wave and a dot at
+   the present. It sits above the year. */
+.readout .clim {
+  display: contents;
+}
+
+.readout .clim dt,
+.readout .clim dd {
+  order: -1;
+}
+
+.clim dd {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.clim-wave {
+  flex: none;
+  overflow: visible;
+}
+
+.clim-wave line {
+  stroke: var(--muted);
+  stroke-opacity: 0.45;
+  stroke-dasharray: 1.5 2.5;
+}
+
+.clim-wave path {
+  fill: none;
+  stroke: var(--muted);
+  stroke-width: 1.3;
+  stroke-linecap: round;
+}
+
+.clim-wave circle {
+  fill: var(--figure);
+}
+
+.clim-w {
+  min-width: 44px;
+  font-size: 13px;
+  color: var(--muted);
+  text-align: left;
+}
+
+/* The dial makes the readout one row taller, so the guide column ends one row higher. */
+.clim-on .side {
+  bottom: 224px;
+}
+
+.clim-on.card-open .side {
+  bottom: 56px;
+}
+
 /* ---------- labels and tip ---------- */
 
 .labels {
@@ -744,6 +800,48 @@ a:focus-visible {
 
 .food .knob {
   margin-top: 6px;
+}
+
+/* The climate: three choices on one row, and under them the three cycle lengths. */
+.food-maps.climates {
+  grid-template-columns: 1fr 1fr 1fr;
+}
+
+.food-maps.climates .opt {
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: center;
+  gap: 2px;
+  min-height: 52px;
+  padding: 6px 8px;
+}
+
+#climate-periods {
+  margin-top: 2px;
+}
+
+#climate-periods[hidden] {
+  display: none;
+}
+
+#climate-periods .opt {
+  min-height: 32px;
+  color: var(--muted);
+}
+
+#climate-periods .opt:has(input:checked) {
+  color: var(--heading);
+}
+
+.fp-cycle {
+  margin: 8px 0 0;
+  font-size: 12px;
+  line-height: 1.45;
+  color: var(--muted);
+}
+
+.fp.empty .fp-cycle {
+  display: none;
 }
 
 /* A restart is due: the button that does it carries the ink. */
@@ -1288,6 +1386,43 @@ a:focus-visible {
   .readout dt:nth-of-type(n + 3),
   .readout dd:nth-of-type(n + 3) {
     display: none;
+  }
+
+  /* The climate dial goes under the two numbers as one short row: the wave, the share, an arrow. */
+  .readout .clim {
+    display: flex;
+    grid-column: 1 / -1;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 8px;
+  }
+
+  .readout .clim dt,
+  .readout .clim dd {
+    order: 0;
+  }
+
+  .clim dd {
+    gap: 6px;
+  }
+
+  .clim-wave {
+    width: 44px;
+    height: 16px;
+  }
+
+  .clim-w {
+    min-width: 0;
+    font-size: 0;
+  }
+
+  .clim-w::after {
+    content: '↓';
+    font-size: 13px;
+  }
+
+  .clim-w[data-dir='up']::after {
+    content: '↑';
   }
 
   .readout dt {
@@ -1920,6 +2055,14 @@ a:focus-visible {
   border: 4px solid transparent;
   border-top: 7px solid var(--t1);
   border-bottom: 0;
+}
+
+.hist-key .k-line {
+  width: 16px;
+  height: 0;
+  border-top: 1.5px solid var(--ink);
+  opacity: 0.55;
+  vertical-align: 3px;
 }
 
 /* On a narrow stage the guide sits above the chronicle at full width, and a picked organism's card

@@ -2,7 +2,7 @@
 
 import { parentPort } from 'node:worker_threads';
 import { grow, withOverrides, type Overrides } from '../src/sim/world.ts';
-import { census, fingerprint, summarize, waterRegions, type Census, type Fingerprint, type RunSummary } from '../src/sim/score.ts';
+import { byPhase, census, fingerprint, foodHighs, lasting, lineagesAlive, summarize, waterRegions, type Census, type Fingerprint, type Lasting, type PhaseRow, type RunSummary } from '../src/sim/score.ts';
 import type { SuccessionRecord } from '../src/sim/society.ts';
 
 export interface ExpJob {
@@ -13,6 +13,24 @@ export interface ExpJob {
   ablate?: Partial<Record<'tribute' | 'conflict' | 'allegiance' | 'kin' | 'attention', boolean>>;
   /** Record a time-series sample every this many ticks. */
   every: number;
+  /** Also measure the run by phase of the climate cycle, using the world's climatePeriod. */
+  cycle?: boolean;
+}
+
+/** Censuses per climate cycle, taken from half a cycle in. */
+const CENSUSES_PER_CYCLE = 20;
+
+/**
+ * A run measured against the climate cycle. `phases` averages the censuses from half a cycle in.
+ * `highs` follows the groups standing at each food high to the next high, and `falls` does the
+ * same from each moment food falls through its usual amount, which is near the population's peak.
+ */
+export interface CycleResult {
+  period: number;
+  swing: number;
+  phases: PhaseRow[];
+  highs: Lasting[];
+  falls: Lasting[];
 }
 
 /** Ticks between the censuses behind the fingerprint, taken over the second half of the run. */
@@ -59,6 +77,10 @@ export interface ExpResult {
   regions: { name: string; fingerprint: Fingerprint }[];
   /** In a world with two waters: which water winners and losers of fights sat in later. */
   crossings: Crossing[];
+  /** The run by phase of the climate cycle, when the job asked for it. */
+  cycle?: CycleResult;
+  /** Lineages with an organism alive at the end. */
+  lineages: number;
   levels: number[];
   samples: ExpSample[];
   successions: SuccessionRecord[];
@@ -79,6 +101,9 @@ parentPort!.on('message', (job: ExpJob) => {
   const censuses: Census[] = [];
   const regions = waterRegions(s).map((r) => ({ ...r, censuses: [] as Census[] }));
   const half = Math.floor(job.ticks / 2);
+  const period = s.p.climatePeriod;
+  const cycleEvery = Math.max(1, Math.round(period / CENSUSES_PER_CYCLE));
+  const cycleCensuses: Census[] = [];
   // Follow both organisms of every fight, so losers can be compared with winners from the same place.
   const tally = new Map<string, Crossing>();
   const due: { tick: number; slot: number; uid: number; lost: boolean; near: boolean; murky: boolean }[][] = FOLLOW_TICKS.map(() => []);
@@ -128,6 +153,7 @@ parentPort!.on('message', (job: ExpJob) => {
       censuses.push(census(s));
       for (const r of regions) r.censuses.push(census(s, r.has));
     }
+    if (job.cycle && world.tick >= period / 2 && world.tick % cycleEvery === 0) cycleCensuses.push(census(s));
     if (world.tick % job.every === 0) {
       const h = s.history[s.history.length - 1];
       samples.push({
@@ -156,6 +182,17 @@ parentPort!.on('message', (job: ExpJob) => {
     eN[d] = (eN[d] ?? 0) + 1;
   }
   const energyByRank = eSum.map((v, d) => v / eN[d]);
+  // Each food high with a full cycle after it, and the same for each fall through the usual amount.
+  const pairs = (starts: number[]): Lasting[] => starts.filter((t) => t + period <= s.tick).map((t) => lasting(s, t, t + period));
+  const cycle: CycleResult | undefined = job.cycle
+    ? {
+        period,
+        swing: s.p.climateSwing,
+        phases: byPhase(cycleCensuses, period),
+        highs: pairs(foodHighs(period, 0, s.tick)),
+        falls: pairs(foodHighs(period, 0, s.tick).map((t) => t + period / 4)),
+      }
+    : undefined;
   const result: ExpResult = {
     seed: job.seed,
     summary: summarize(s, job.seed),
@@ -163,6 +200,8 @@ parentPort!.on('message', (job: ExpJob) => {
     regions: regions.map((r) => ({ name: r.name, fingerprint: fingerprint(s, r.censuses, r.has) })),
     // A fight too late in the run to follow for the full time is not counted.
     crossings: [...tally.values()],
+    cycle,
+    lineages: lineagesAlive(s),
     levels: [...s.levels],
     samples,
     successions: s.successions,

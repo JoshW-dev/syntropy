@@ -67,11 +67,12 @@ const FOOD_VERT = /* glsl */ `
   attribute float level;
   uniform float uSize;
   uniform float uScale;
+  uniform float uSwell;
   varying float vLevel;
   varying float vDepth;
   void main() {
     vec4 mv = modelViewMatrix * vec4(position, 1.0);
-    gl_PointSize = clamp(uScale * 0.0095 / -mv.z, uSize * 0.55, uSize);
+    gl_PointSize = clamp(uScale * 0.0095 / -mv.z, uSize * 0.55, uSize) * uSwell;
     vLevel = level;
     vDepth = -mv.z;
     gl_Position = projectionMatrix * mv;
@@ -249,6 +250,7 @@ export class Bodies {
       uniforms: {
         uSize: { value: 3 },
         uScale: { value: 1000 },
+        uSwell: { value: 1 },
         uColor: { value: new THREE.Color() },
         uAlpha: { value: 1 },
         uFogNear: { value: 4 },
@@ -396,6 +398,9 @@ export class Bodies {
     this.ringMat.uniforms.uDpr.value = dpr;
     this.foodMat.uniforms.uScale.value = pixelScale;
     this.foodMat.uniforms.uSize.value = 2.6 * dpr;
+    // In a world with a climate cycle the dots swell when the water holds more food and shrink when
+    // it holds less. With the cycle off the factor is exactly 1.
+    this.foodMat.uniforms.uSwell.value = s.climateOn ? 0.6 + 0.4 * s.climateAt() : 1;
     this.lineMat.resolution.set(this.cssWidth, this.cssHeight);
     this.chainMat.resolution.set(this.cssWidth, this.cssHeight);
     this.cubes.setFog(this.fog.near, this.fog.far);

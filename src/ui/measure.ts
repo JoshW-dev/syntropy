@@ -1,10 +1,11 @@
 // The fingerprint, live: outside measures of this world's society, in the Environment panel beside
 // the settings that move them. Most are averages over the world's last ten years, and regrouping
 // counts the whole run. A world with two kinds of water is measured once per water, side by side,
-// so the two societies in it can be compared. It reads the simulation and changes nothing in it.
+// so the two societies in it can be compared. A world with a climate cycle also says how many groups
+// lasted from one food high to the next. It reads the simulation and changes nothing in it.
 
 import { TICKS_PER_YEAR, type App } from '../app.ts';
-import { REGROUP_MIN, census, fingerprint, waterRegions, type Census, type Fingerprint, type Region } from '../sim/score.ts';
+import { REGROUP_MIN, census, fingerprint, foodHighs, lasting, waterRegions, type Census, type Fingerprint, type Region } from '../sim/score.ts';
 
 /**
  * Ticks between censuses, and how many are kept. The society surveys itself every 30 ticks, so a
@@ -38,6 +39,7 @@ export class Measure {
   private el = $<HTMLElement>('fp');
   private when = $<HTMLSpanElement>('fp-when');
   private table = $<HTMLTableElement>('fp-table');
+  private cycle = $<HTMLParagraphElement>('fp-cycle');
   private tiles: Tile[] = [];
   private whole: Part = { name: 'world', censuses: [] };
   private parts: Part[] = [];
@@ -103,6 +105,7 @@ export class Measure {
     const years = Math.round((f.to - f.from) / TICKS_PER_YEAR);
     const span = some && years > 0 ? `last ${years} year${years === 1 ? '' : 's'}` : '';
     if (this.when.textContent !== span) this.when.textContent = span;
+    this.paintCycle();
     if (parts.length === 2) {
       this.paintTable(parts);
       return;
@@ -121,6 +124,28 @@ export class Measure {
       if (t.value.textContent !== value) t.value.textContent = value;
       if (t.label.textContent !== label) t.label.textContent = label;
     });
+  }
+
+  /** A climate cycle: of the groups that stood at one food high, how many still stood at the next. */
+  private paintCycle(): void {
+    const s = this.app.world.society;
+    this.cycle.hidden = !s.climateOn;
+    if (!s.climateOn) return;
+    const period = s.p.climatePeriod;
+    const year = (t: number) => Math.round(t / TICKS_PER_YEAR);
+    const highs = foodHighs(period, 0, s.tick);
+    let text: string;
+    if (highs.length < 2) {
+      text = `Food is highest in year ${year(period / 4)} and again in year ${year((5 * period) / 4)}. From then on, this line counts the groups that last from one food high to the next.`;
+    } else {
+      const to = highs[highs.length - 1];
+      const from = highs[highs.length - 2];
+      const l = lasting(s, from, to);
+      text = l.standing
+        ? `${l.standing} group${l.standing === 1 ? '' : 's'} of ${s.p.notableSize} or more stood at the food high in year ${year(from)}. ${l.lasted} still stood at the next high, in year ${year(to)}.`
+        : `No group of ${s.p.notableSize} or more stood at the food high in year ${year(from)}.`;
+    }
+    if (this.cycle.textContent !== text) this.cycle.textContent = text;
   }
 
   /** Two waters: one column each, so the same measure reads across. */

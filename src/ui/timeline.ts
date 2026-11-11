@@ -1,8 +1,10 @@
 // The history of one world, drawn as it happens. Time runs left to right. The grey shape is the
 // whole population; each coloured band inside it is a realm, in its founding lineage's colour, as
 // tall as its members. Order shows as colour filling the grey. Marks under the chart show every
-// realm that lost its ruler and whether it held. A click pins a year, and the world can be replayed
-// from its seed up to that year. The chart can be saved as an image with the seed's link on it.
+// realm that lost its ruler and whether it held. In a world with a climate cycle a thin line shows
+// the food the water could hold, so the groups can be read against it. A click pins a year, and the
+// world can be replayed from its seed up to that year. The chart can be saved as an image with the
+// seed's link on it.
 
 import { TICKS_PER_YEAR, type App } from '../app.ts';
 import { LADDER } from '../sim/world.ts';
@@ -43,6 +45,7 @@ export class Timeline {
   private sub = $<HTMLParagraphElement>('hist-sub');
   private replay = $<HTMLButtonElement>('hist-replay');
   private btn = $<HTMLButtonElement>('hist-btn');
+  private foodKey = $<HTMLSpanElement>('hist-food');
   private snaps: Snap[] = [];
   private dirty = true;
   private hover: { x: number; y: number } | null = null;
@@ -166,6 +169,7 @@ export class Timeline {
     const fell = notable.filter((r) => r.ended >= 0).length;
     const sub = `${notable.length} group${notable.length === 1 ? ' has' : 's have'} grown to 15 or more, and ${fell} ${fell === 1 ? 'has' : 'have'} ended.`;
     if (this.sub.textContent !== sub) this.sub.textContent = sub;
+    this.foodKey.hidden = !s.climateOn;
   }
 
   // ---------------------------------------------------------------- drawing
@@ -273,6 +277,37 @@ export class Timeline {
     ctx.fillStyle = c.ground;
     for (const l of labels) ctx.fillText(l.name, Math.min(l.hi, Math.max(l.lo, l.x)), l.y);
 
+    // The climate: the food the water could hold, as a thin line over the whole chart. Its top is
+    // the most the cycle reaches and the chart's floor is no food, so groups can be seen to end as
+    // the line comes down and to start as it goes up.
+    if (s.climateOn && last > 0) {
+      const most = 1 + s.p.climateSwing;
+      const fy = (t: number) => plot.y + plot.h - (s.climateAt(t) / most) * (plot.h - 6);
+      const stepT = Math.max(1, tMax / Math.max(60, plot.w / 2));
+      ctx.beginPath();
+      ctx.moveTo(sx(0), fy(0));
+      for (let t = stepT; t < last; t += stepT) ctx.lineTo(sx(t), fy(t));
+      ctx.lineTo(sx(last), fy(last));
+      ctx.strokeStyle = c.ink;
+      ctx.globalAlpha = 0.55;
+      ctx.lineWidth = 1.25;
+      ctx.stroke();
+      // Name the line once: over its first low, where no band reaches, or under its first high
+      // while the chart has not come that far.
+      const high = s.p.climatePeriod / 4;
+      const low = 3 * high;
+      ctx.font = `11px ${FONT}`;
+      ctx.fillStyle = c.ink;
+      if (last >= low) {
+        ctx.textAlign = 'center';
+        ctx.fillText('food', sx(low), fy(low) - 6);
+      } else if (last >= high) {
+        ctx.textAlign = 'left';
+        ctx.fillText('food', Math.min(sx(high) + 6, plot.x + plot.w - 30), fy(high) + 12);
+      }
+      ctx.globalAlpha = 1;
+    }
+
     // Levels: a hairline at the year each was first measured.
     ctx.font = `12px ${FONT}`;
     ctx.textAlign = 'left';
@@ -379,6 +414,7 @@ export class Timeline {
     let inRealms = 0;
     for (let q = 0; q < sn.realms.length; q += 2) if (s.realms[sn.realms[q]]?.notable) inRealms += sn.realms[q + 1];
     const lines = [`<b>Year ${Math.floor(sn.tick / TICKS_PER_YEAR)}</b>: ${sn.pop} organisms, ${sn.pop ? Math.round((inRealms / sn.pop) * 100) : 0}% in major groups`];
+    if (s.climateOn) lines.push(`The water held ${Math.round(s.climateAt(sn.tick) * 100)}% of its usual food`);
     for (const [id, list] of this.bands) {
       const sl = list.find((x) => x.k === k);
       const r = s.realms[id];
@@ -421,10 +457,13 @@ export class Timeline {
     ctx.font = `14px ${FONT}`;
     ctx.textAlign = 'left';
     ctx.fillStyle = c.ink;
-    ctx.fillText('Each band is a group that grew to 15 or more, as tall as its members. Grey is everyone else. No rule in the simulation names a group.', 48, 572);
+    // A world with a climate cycle gets one more line of key, so the three lines sit closer.
+    const cycle = s.climateOn;
+    ctx.fillText('Each band is a group that grew to 15 or more, as tall as its members. Grey is everyone else. No rule in the simulation names a group.', 48, cycle ? 564 : 572);
+    if (cycle) ctx.fillText(`The thin line is the food the water could hold. It swings between ${Math.round((1 - s.p.climateSwing) * 100)}% and ${Math.round((1 + s.p.climateSwing) * 100)}% of the usual every ${Math.round(s.p.climatePeriod / TICKS_PER_YEAR)} years.`, 48, 585);
     ctx.fillStyle = c.muted;
     const query = location.search;
-    ctx.fillText(`${SITE}/${query}#${app.seed}`, 48, 598);
+    ctx.fillText(`${SITE}/${query}#${app.seed}`, 48, cycle ? 608 : 598);
     canvas.toBlob((blob) => {
       if (!blob) return;
       const a = document.createElement('a');

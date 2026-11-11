@@ -65,6 +65,13 @@ const POCKET_RADIUS = 0.5;
 export interface SocietyParams {
   maxN: number;
   // world and food
+  /**
+   * The climate cycle: food capacity everywhere is multiplied by 1 + swing * sin(2 pi tick / period)
+   * (see climateAt). At swing 0 the cycle is off and the multiplier is exactly 1.
+   */
+  climateSwing: number;
+  /** Length of one climate cycle in ticks. */
+  climatePeriod: number;
   /** Where the water is clear and where it is murky. Read once, when the world is built. */
   waterMap: WaterMap;
   /** The shape of the food field. Read once, when the world is built. */
@@ -174,6 +181,8 @@ export interface SocietyParams {
 // as wide a volume as before (late population about 450 on 24 seeds, as with the drop).
 export const DEFAULT_SOCIETY: SocietyParams = {
   maxN: 1400,
+  climateSwing: 0,
+  climatePeriod: 6000,
   waterMap: 'even',
   foodMap: 'zones',
   foodCapacity: 1,
@@ -1703,7 +1712,29 @@ export class Society {
   private regrow(): void {
     const { food, cap, p } = this;
     const r = p.regrow;
-    for (let c = 0; c < food.length; c++) food[c] += r * (cap[c] - food[c]);
+    // The climate: one multiplier on what every cell can hold. It is exactly 1 with the cycle off.
+    const k = this.climateAt(this.tick);
+    for (let c = 0; c < food.length; c++) food[c] += r * (cap[c] * k - food[c]);
+  }
+
+  /**
+   * Food capacity at a tick, as a multiple of what the map holds. It rises and falls everywhere on
+   * one slow cycle, and starts at 1 on the way up. No rule reads the phase: food regrows toward the
+   * capacity of the moment, and that is all the climate does.
+   */
+  climateAt(tick: number = this.tick): number {
+    const { climateSwing: swing, climatePeriod: period } = this.p;
+    return swing > 0 && period > 0 ? 1 + swing * Math.sin((2 * Math.PI * tick) / period) : 1;
+  }
+
+  /** True while the climate cycle is on. */
+  get climateOn(): boolean {
+    return this.p.climateSwing > 0 && this.p.climatePeriod > 0;
+  }
+
+  /** True while food capacity is rising. For viewers and measurements; no rule reads it. */
+  climateRising(tick: number = this.tick): boolean {
+    return Math.cos((2 * Math.PI * tick) / this.p.climatePeriod) > 0;
   }
 
   // ---------------------------------------------------------------- measurement

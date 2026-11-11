@@ -4,6 +4,7 @@ import './style.css';
 import { App, parseStrikes, randomSeed, seedFromHash } from './app.ts';
 import { Bridge } from './ui/bridge.ts';
 import { Card } from './ui/card.ts';
+import { Climate } from './ui/climate.ts';
 import { Director } from './ui/director.ts';
 import { Environment } from './ui/environment.ts';
 import { Measure } from './ui/measure.ts';
@@ -51,6 +52,7 @@ try {
   app.start(seedFromHash() ?? randomSeed(), undefined, parseStrikes(readQuery('k')));
   const env = new Environment(app);
   const measure = new Measure(app);
+  new Climate(app);
   story.onMeasure = () => env.open();
   new Bridge(app, env, story, timeline, split);
   // One overlay at a time: the Look popover and the Environment panel share the right side.

@@ -2,11 +2,12 @@
 // every tick, so a slider changes the running world at once. The values also become the overrides
 // for the next restart or new world, and go into the page link as ?p= so Share passes them on.
 // The food map, the water and the food capacity are different: a world reads them once, when it is
-// built, so they set the next world and the panel says a restart is needed.
+// built, so they set the next world and the panel says a restart is needed. The climate follows
+// them, because its cycle starts with the world.
 
 import { TICKS_PER_YEAR, type App } from '../app.ts';
 import { CLEAR, CLEAREST, DEFAULT_SOCIETY, FOOD_MAPS, HALF_POOR, HALF_RICH, MURKY, WATER_MAPS, type FoodMap, type WaterMap } from '../sim/society.ts';
-import { FOOD_PRESETS, WATER_PRESETS, type Overrides } from '../sim/world.ts';
+import { CLIMATE_PERIODS, CLIMATE_PRESETS, FOOD_PRESETS, WATER_PRESETS, type Overrides } from '../sim/world.ts';
 import { encodeOverrides, isEmpty, writeQuery } from './query.ts';
 
 interface Knob {
@@ -51,6 +52,29 @@ const WATER: Record<WaterMap, { label: string; hint: string; glyph: string }> = 
   halves: { label: 'Half murky', hint: `Murky water on one half of the world, clear on the other. Sight is ${+MURKY.toFixed(2)} and ${CLEAR} times the usual.`, glyph: tank(tint(2, 15, 0.5)) },
   pockets: { label: 'Murky pockets', hint: `Clear water, with a ball of murk around three of the six food centres. Sight is ${+MURKY.toFixed(2)} and ${CLEAR} times the usual.`, glyph: tank([[9, 8], [19, 14], [27, 7]].map(([x, y]) => `<circle cx="${x}" cy="${y}" r="3.6" opacity="0.5" />`).join('')) },
 };
+
+/** Each climate as one cycle of its food: a flat line, a low wave, a tall wave. */
+const wave = (amp: number) => {
+  const pts = Array.from({ length: 31 }, (_, k) => `${(2 + k).toFixed(0)},${(11 - amp * Math.sin((2 * Math.PI * k) / 30)).toFixed(1)}`).join(' ');
+  return `<line x1="2" y1="11" x2="32" y2="11" style="stroke:var(--ink);stroke-opacity:0.3;stroke-dasharray:1.5 2.5" /><polyline points="${pts}" style="fill:none;stroke:var(--ink);stroke-width:1.6;stroke-linecap:round;stroke-linejoin:round" />`;
+};
+const range = (swing: number) => `${Math.round((1 - swing) * 100)}% and ${Math.round((1 + swing) * 100)}%`;
+
+type ClimateName = (typeof CLIMATE_PRESETS)[number]['name'];
+const CLIMATE: Record<ClimateName, { label: string; glyph: string }> = {
+  steady: { label: 'Steady', glyph: wave(0) },
+  mild: { label: 'Mild cycle', glyph: wave(4) },
+  strong: { label: 'Strong cycle', glyph: wave(8.5) },
+};
+
+/** What a climate does, in one or two sentences. */
+function climateHint(swing: number, period: number): string {
+  if (!(swing > 0)) return 'The water holds the same food all the time. This is the world the paper measured.';
+  const seconds = Math.round(period / 60);
+  // The one pair of presets that kills worlds says so (16 worlds, 300 years).
+  const deadly = swing >= 0.9 && period >= 12000 ? ' A low this long is deadly: 6 of 16 test worlds died out within 300 years.' : '';
+  return `The food the water can hold rises and falls everywhere at once, between ${range(swing)} of the usual. One cycle takes ${Math.round(period / TICKS_PER_YEAR)} years, which is ${seconds} seconds at 1×.${deadly}`;
+}
 
 const CAPACITY: Knob = {
   key: 'foodCapacity', label: 'Food capacity', note: 'applies on restart', min: 0.25, max: 2, step: 0.05, show: times,
@@ -111,6 +135,11 @@ export class Environment {
   private waterRadios: HTMLInputElement[] = [];
   private waterHint = $<HTMLParagraphElement>('water-hint');
   private waterWhen = $<HTMLSpanElement>('water-when');
+  private climateRadios: HTMLInputElement[] = [];
+  private periodRadios: HTMLInputElement[] = [];
+  private periodRow = $<HTMLDivElement>('climate-periods');
+  private climateHint = $<HTMLParagraphElement>('climate-hint');
+  private climateWhen = $<HTMLSpanElement>('climate-when');
   private capacity!: Row;
   private urlTimer = 0;
   private narrow = window.matchMedia('(max-width: 760px)');
@@ -182,7 +211,7 @@ export class Environment {
     return row;
   }
 
-  /** The food map picker, the water picker and the capacity dial. All three set the next world. */
+  /** The food map picker, the water picker, the capacity dial and the climate. All set the next world. */
   private buildFood(): void {
     const picker = <K extends string>(host: string, name: string, keys: readonly K[], info: Record<K, { label: string; hint: string; glyph: string }>, pick: (key: K) => void) =>
       keys.map((key) => {
@@ -207,12 +236,30 @@ export class Environment {
     this.mapRadios = picker('food-maps', 'food-map', FOOD_MAPS, FOOD, (map) => this.remember({ ...this.nextFood(), map, capacity: paired(map, this.nextFood().water) }));
     this.waterRadios = picker('water-maps', 'water-map', WATER_MAPS, WATER, (water) => this.remember({ ...this.nextFood(), water, capacity: paired(this.nextFood().map, water) }));
     this.capacity = this.addKnob($<HTMLDivElement>('food-knob'), CAPACITY, this.nextFood().capacity, (v) => this.remember({ ...this.nextFood(), capacity: v }));
+    // The climate: how far food swings, and how long one cycle takes. A climate's mean is the usual
+    // food, so picking one leaves the capacity alone.
+    const names = CLIMATE_PRESETS.map((c) => c.name);
+    const swingOf = (name: ClimateName) => CLIMATE_PRESETS.find((c) => c.name === name)!.swing;
+    const info = Object.fromEntries(names.map((n) => [n, { ...CLIMATE[n], hint: swingOf(n) > 0 ? `Food swings between ${range(swingOf(n))} of the usual.` : climateHint(0, 0) }])) as Record<ClimateName, { label: string; hint: string; glyph: string }>;
+    this.climateRadios = picker('climate-maps', 'climate', names, info, (name) => this.remember({ ...this.nextFood(), swing: swingOf(name) }));
+    this.periodRadios = CLIMATE_PERIODS.map((period) => {
+      const label = document.createElement('label');
+      label.className = 'opt';
+      label.title = `One cycle takes ${period / TICKS_PER_YEAR} years: ${Math.round(period / 60)} seconds at 1×.`;
+      label.innerHTML = `<input type="radio" name="climate-period" value="${period}" /><span class="nm">${period / TICKS_PER_YEAR} years</span>`;
+      const radio = label.querySelector('input')!;
+      radio.addEventListener('change', () => {
+        if (radio.checked) this.remember({ ...this.nextFood(), period });
+      });
+      this.periodRow.appendChild(label);
+      return radio;
+    });
   }
 
-  /** The food and water settings the next world will be built with. */
-  private nextFood(): { map: FoodMap; water: WaterMap; capacity: number } {
+  /** The food, water and climate settings the next world will be built with. */
+  private nextFood(): { map: FoodMap; water: WaterMap; capacity: number; swing: number; period: number } {
     const s = this.app.params.society;
-    return { map: s.foodMap, water: s.waterMap, capacity: s.foodCapacity };
+    return { map: s.foodMap, water: s.waterMap, capacity: s.foodCapacity, swing: s.climateSwing, period: s.climatePeriod };
   }
 
   private paintFood(): void {
@@ -224,13 +271,20 @@ export class Environment {
     this.waterHint.textContent = WATER[next.water].hint;
     this.capacity.input.value = String(next.capacity);
     this.paint(this.capacity, next.capacity);
+    // The climate: a preset when the swing is one, and the cycle length only while a cycle is on.
+    for (const r of this.climateRadios) r.checked = near(CLIMATE_PRESETS.find((c) => c.name === r.value)!.swing, next.swing);
+    for (const r of this.periodRadios) r.checked = Number(r.value) === next.period;
+    this.periodRow.hidden = !(next.swing > 0);
+    this.climateHint.textContent = climateHint(next.swing, next.period);
     const food = next.map !== running.foodMap || !near(next.capacity, running.foodCapacity);
     const water = next.water !== running.waterMap;
-    for (const [el, waiting] of [[this.mapWhen, food], [this.waterWhen, water]] as [HTMLElement, boolean][]) {
+    // With the cycle off in both worlds, a different cycle length changes nothing.
+    const climate = !near(next.swing, running.climateSwing) || (next.swing > 0 && next.period !== running.climatePeriod);
+    for (const [el, waiting] of [[this.mapWhen, food], [this.waterWhen, water], [this.climateWhen, climate]] as [HTMLElement, boolean][]) {
       el.textContent = waiting ? 'restart to apply' : 'applies on restart';
       el.classList.toggle('due', waiting);
     }
-    this.restartBtn.classList.toggle('due', food || water);
+    this.restartBtn.classList.toggle('due', food || water || climate);
   }
 
   open(): void {
@@ -288,7 +342,7 @@ export class Environment {
 
   private foodIsDefault(): boolean {
     const next = this.nextFood();
-    return next.map === DEFAULT_SOCIETY.foodMap && next.water === DEFAULT_SOCIETY.waterMap && near(next.capacity, DEFAULT_SOCIETY.foodCapacity);
+    return next.map === DEFAULT_SOCIETY.foodMap && next.water === DEFAULT_SOCIETY.waterMap && near(next.capacity, DEFAULT_SOCIETY.foodCapacity) && !(next.swing > 0);
   }
 
   private paint(row: Row, v: number): void {
@@ -302,13 +356,13 @@ export class Environment {
   private reset(): void {
     const live = this.live();
     for (const row of this.rows) live[row.knob.key] = DEFAULTS[row.knob.key];
-    this.remember({ map: DEFAULT_SOCIETY.foodMap, water: DEFAULT_SOCIETY.waterMap, capacity: DEFAULT_SOCIETY.foodCapacity });
+    this.remember({ map: DEFAULT_SOCIETY.foodMap, water: DEFAULT_SOCIETY.waterMap, capacity: DEFAULT_SOCIETY.foodCapacity, swing: DEFAULT_SOCIETY.climateSwing, period: DEFAULT_SOCIETY.climatePeriod });
     this.sync();
   }
 
   /**
-   * Fold the sliders and the food settings into the app's overrides and the page link. Other
-   * overrides are kept. `food` replaces the food settings; without it they stay as they are.
+   * Fold the sliders and the food, water and climate settings into the app's overrides and the page
+   * link. Other overrides are kept. `food` replaces those settings; without it they stay as they are.
    */
   private remember(food = this.nextFood()): void {
     const live = this.live();
@@ -321,7 +375,12 @@ export class Environment {
     else society.waterMap = food.water;
     if (near(food.capacity, DEFAULT_SOCIETY.foodCapacity)) delete society.foodCapacity;
     else society.foodCapacity = food.capacity;
-    changed += Number('foodMap' in society) + Number('waterMap' in society) + Number('foodCapacity' in society);
+    // A link carries the swing while a cycle is on, and the cycle length when it is not the usual one.
+    if (food.swing > 0) society.climateSwing = food.swing;
+    else delete society.climateSwing;
+    if (food.swing > 0 && food.period !== DEFAULT_SOCIETY.climatePeriod) society.climatePeriod = food.period;
+    else delete society.climatePeriod;
+    changed += Number('foodMap' in society) + Number('waterMap' in society) + Number('foodCapacity' in society) + Number('climateSwing' in society);
     for (const { knob } of this.rows) {
       const v = live[knob.key];
       if (near(v, DEFAULTS[knob.key])) delete society[knob.key];

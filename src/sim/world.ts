@@ -58,6 +58,22 @@ export const WATER_PRESETS: readonly { map: WaterMap; capacity: number }[] = [
   { map: 'pockets', capacity: 1 },
 ];
 
+/**
+ * The climates a viewer can pick. Steady is the world the paper measured. In the other two the food
+ * every cell can hold swings around its usual amount: between 40% and 160% when mild, and between
+ * 10% and 190% when strong. The mean stays at 1, so a climate needs no food capacity of its own.
+ */
+export const CLIMATE_PRESETS: readonly { name: 'steady' | 'mild' | 'strong'; swing: number }[] = [
+  { name: 'steady', swing: 0 },
+  { name: 'mild', swing: 0.6 },
+  { name: 'strong', swing: 0.9 },
+];
+
+/** Cycle lengths a viewer can pick, in ticks: 30, 60 and 120 years. The default is the middle one. */
+export const CLIMATE_PERIODS: readonly number[] = [3000, 6000, 12000];
+/** The widest swing a world accepts. At 1 the food would have nothing to regrow toward at the low. */
+export const CLIMATE_MAX_SWING = 0.95;
+
 /** Overlay partial overrides (from a tuning file, the environment panel or a URL) on the defaults. */
 export function withOverrides(o: Overrides = {}): WorldParams {
   const society = { ...DEFAULT_SOCIETY, ...(o.society ?? {}) };
@@ -65,6 +81,8 @@ export function withOverrides(o: Overrides = {}): WorldParams {
   if (!FOOD_MAPS.includes(society.foodMap)) society.foodMap = DEFAULT_SOCIETY.foodMap;
   if (!WATER_MAPS.includes(society.waterMap)) society.waterMap = DEFAULT_SOCIETY.waterMap;
   if (!(Number.isFinite(society.foodCapacity) && society.foodCapacity > 0)) society.foodCapacity = DEFAULT_SOCIETY.foodCapacity;
+  society.climateSwing = Number.isFinite(society.climateSwing) && society.climateSwing > 0 ? Math.min(CLIMATE_MAX_SWING, society.climateSwing) : 0;
+  if (!(Number.isFinite(society.climatePeriod) && society.climatePeriod >= 300)) society.climatePeriod = DEFAULT_SOCIETY.climatePeriod;
   return {
     cells: { ...DEFAULT_CELLS, ...(o.cells ?? {}) },
     society,
