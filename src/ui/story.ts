@@ -5,7 +5,7 @@
 
 import * as THREE from 'three';
 import { TICKS_PER_YEAR, type App } from '../app.ts';
-import type { SimEvent, SuccessionWatch } from '../sim/society.ts';
+import { HALF_POOR, HALF_RICH, type SimEvent, type SuccessionWatch } from '../sim/society.ts';
 import type { Director } from './director.ts';
 
 interface Caption {
@@ -38,6 +38,8 @@ export class Story {
   captions = true;
   /** Opens the world's history; set by main. */
   onHistory: () => void = () => undefined;
+  /** Opens the panel that shows this world's measurements; set by main. */
+  onMeasure: () => void = () => undefined;
   private app: App;
   private director: Director;
   private el = $<HTMLDivElement>('caption');
@@ -172,10 +174,13 @@ export class Story {
       if (app.world.tick < 90) {
         const c = app.params.cells;
         const list = (xs: number[]) => (xs.length === 2 ? `${xs[0]} or ${xs[1]}` : `${xs[0]} to ${xs[xs.length - 1]}`);
-        this.say({
-          kicker: 'One rule is running', high: true, seconds: 9,
-          body: `Each cell counts its 26 neighbours. A dead cell with ${list(c.birth)} live neighbours is born, and a live cell with ${list(c.survive)} survives. Nothing in this rule mentions an organism.`,
-        });
+        // A viewer who changed the food has seen the opening line, so the map takes its place.
+        this.say(
+          this.foodCaption() ?? {
+            kicker: 'One rule is running', high: true, seconds: 9,
+            body: `Each cell counts its 26 neighbours. A dead cell with ${list(c.birth)} live neighbours is born, and a live cell with ${list(c.survive)} survives. Nothing in this rule mentions an organism.`,
+          },
+        );
       }
     }
     if (!this.sawFollower && s.stats.joins > 0 && !app.seeking) {
@@ -198,6 +203,25 @@ export class Story {
       if (next.fresh && !next.fresh()) continue;
       if (age < STALE || (!this.queue.length && age < 2.5 * STALE)) this.show(next);
     }
+  }
+
+  /** What this world's food map changes, or null for the map and amount the paper measured. */
+  private foodCaption(): Caption | null {
+    const { foodMap, foodCapacity } = this.app.world.params.society;
+    if (foodMap === 'zones' && foodCapacity === 1) return null;
+    const amount = `${+foodCapacity.toFixed(2)} times the usual food`;
+    const where = 'The map changes one thing: where food grows.';
+    const [kicker, first, what] = {
+      zones: [foodCapacity > 1 ? 'More food' : 'Less food', `This world holds ${amount}, in the same six zones.`, 'That changes one thing: how many organisms the water can feed.'],
+      plain: ['Food spread evenly', 'The food in this world is spread evenly through the water.', where],
+      islands: ['Food on six islands', 'The food in this world sits on six tight islands, with almost bare water between them.', where],
+      halves: ['A rich half and a poor half', `One half of this world holds ${+(HALF_RICH / HALF_POOR).toFixed(1)} times the food of the other.`, where],
+    }[foodMap];
+    return {
+      kicker, high: true, seconds: 12,
+      body: `${first} ${what} That sets how many others each organism can see. No rule names a crowd, a border or a group, and the choice of whom to follow never reads food. Watch how many organisms end up in groups.`,
+      action: { label: 'See the measurements', run: () => this.onMeasure() },
+    };
   }
 
   // ---------------------------------------------------------------- the succession watch

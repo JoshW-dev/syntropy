@@ -15,6 +15,7 @@
     "cells-search": "node scripts/cells-search.ts",
     "url": "node scripts/url.ts",
     "experiments": "node scripts/experiments.ts",
+    "fingerprint": "node scripts/fingerprint.ts",
     "figures": "node scripts/figures.ts",
     "paper": "node scripts/build-paper.ts",
     "paper:pdf": "node scripts/paper-pdf.ts",

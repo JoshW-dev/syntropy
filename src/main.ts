@@ -6,6 +6,7 @@ import { Bridge } from './ui/bridge.ts';
 import { Card } from './ui/card.ts';
 import { Director } from './ui/director.ts';
 import { Environment } from './ui/environment.ts';
+import { Measure } from './ui/measure.ts';
 import { Realms } from './ui/realms.ts';
 import { Story } from './ui/story.ts';
 import { Timeline } from './ui/timeline.ts';
@@ -47,6 +48,8 @@ try {
   // A link's ?k= replays the rulers its sender removed, at the ticks they removed them.
   app.start(seedFromHash() ?? randomSeed(), undefined, parseStrikes(readQuery('k')));
   const env = new Environment(app);
+  const measure = new Measure(app);
+  story.onMeasure = () => env.open();
   new Bridge(app, env, story, timeline, split);
   // One overlay at a time: the Look popover and the Environment panel share the right side.
   view.onHide = () => env.close(false);
@@ -55,7 +58,7 @@ try {
   bindKeys(app, view, env, split, timeline);
   app.run();
   // Dev only: drive the loop from the console when the tab is in the background.
-  if (import.meta.env.DEV) Object.assign(window, { __syntropy: app, __director: director });
+  if (import.meta.env.DEV) Object.assign(window, { __syntropy: app, __director: director, __measure: measure });
 } catch (err) {
   console.error(err);
   // A look may already be painted; the note is styled for paper, so go back to it.

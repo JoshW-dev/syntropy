@@ -2,7 +2,7 @@
 
 import { parentPort } from 'node:worker_threads';
 import { grow, withOverrides, type Overrides } from '../src/sim/world.ts';
-import { summarize, type RunSummary } from '../src/sim/score.ts';
+import { census, fingerprint, summarize, type Census, type Fingerprint, type RunSummary } from '../src/sim/score.ts';
 import type { SuccessionRecord } from '../src/sim/society.ts';
 
 export interface ExpJob {
@@ -14,6 +14,9 @@ export interface ExpJob {
   /** Record a time-series sample every this many ticks. */
   every: number;
 }
+
+/** Ticks between the censuses behind the fingerprint, taken over the second half of the run. */
+const CENSUS_EVERY = 300;
 
 export interface ExpSample {
   tick: number;
@@ -31,6 +34,8 @@ export interface ExpSample {
 export interface ExpResult {
   seed: string;
   summary: RunSummary;
+  /** The society measured from outside, averaged over the second half of the run. */
+  fingerprint: Fingerprint;
   levels: number[];
   samples: ExpSample[];
   successions: SuccessionRecord[];
@@ -48,6 +53,8 @@ parentPort!.on('message', (job: ExpJob) => {
   const s = world.society;
   Object.assign(s.ablate, job.ablate ?? {});
   const samples: ExpSample[] = [];
+  const censuses: Census[] = [];
+  const half = Math.floor(job.ticks / 2);
   let spawned = 0;
   let lastSpawnTick = -1;
   while (world.tick < job.ticks && (s.count > 0 || world.latticeActive)) {
@@ -56,6 +63,7 @@ parentPort!.on('message', (job: ExpJob) => {
       spawned = s.stats.spawned;
       lastSpawnTick = world.tick;
     }
+    if (world.tick === half || (world.tick > half && world.tick % CENSUS_EVERY === 0)) censuses.push(census(s));
     if (world.tick % job.every === 0) {
       const h = s.history[s.history.length - 1];
       samples.push({
@@ -87,6 +95,7 @@ parentPort!.on('message', (job: ExpJob) => {
   const result: ExpResult = {
     seed: job.seed,
     summary: summarize(s, job.seed),
+    fingerprint: fingerprint(s, censuses),
     levels: [...s.levels],
     samples,
     successions: s.successions,

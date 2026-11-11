@@ -407,7 +407,15 @@ export class Bodies {
     this.food.visible = this.show.food;
     if (this.show.food && this.foodFrame++ % 6 === 0) {
       const { food, cap } = s;
-      for (let c = 0; c < food.length; c++) this.foodLevel[c] = cap[c] > 0.3 ? Math.min(0.36, food[c] * 0.45) : 0;
+      // A cell is drawn when it can hold 0.3 or more, and a dot's strength is the food in it. On a
+      // map where no cell holds 1, the line drops to 0.3 of its fullest cell, so thin food spread
+      // evenly still shows. A cell that holds more than 1 (an island, the rich half) draws darker,
+      // up to 0.8. The zones never hold more than 1, so they draw as they always have.
+      const bare = 0.3 * Math.min(1, s.foodCeil);
+      for (let c = 0; c < food.length; c++) {
+        const f = food[c];
+        this.foodLevel[c] = cap[c] <= bare ? 0 : f <= 1 ? Math.min(0.36, f * 0.45) : Math.min(0.8, 0.36 + (f - 1) * 0.16);
+      }
       this.foodGeo.getAttribute('level').needsUpdate = true;
     }
   }

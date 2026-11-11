@@ -5,7 +5,7 @@
 // ends and they dissolve. The organisms never read the lattice, so ending it changes nothing they do.
 
 import { CellsWorld, DEFAULT_CELLS, type CellsParams } from './cells.ts';
-import { Society, DEFAULT_SOCIETY, type SocietyParams } from './society.ts';
+import { Society, DEFAULT_SOCIETY, FOOD_MAPS, type FoodMap, type SocietyParams } from './society.ts';
 import { makeRng, type Rng } from './rng.ts';
 
 export const LADDER = ['Cells', 'Organisms', 'Tribes', 'Hierarchy', 'Government'] as const;
@@ -31,11 +31,27 @@ export const DEFAULT_WORLD: WorldParams = { cells: DEFAULT_CELLS, society: DEFAU
 
 export type Overrides = { cells?: Partial<CellsParams>; society?: Partial<SocietyParams>; ticksPerGen?: number; founders?: FounderMode; homelands?: boolean };
 
+/**
+ * The food maps a viewer can pick. Total food is a multiple of what the zones hold, and each map
+ * comes with the multiple at which a typical world holds 400 to 900 organisms, well under maxN
+ * (16 worlds each, 120 years). At 1 the plain holds about 270 organisms and the islands fill maxN.
+ */
+export const FOOD_PRESETS: readonly { map: FoodMap; capacity: number }[] = [
+  { map: 'zones', capacity: 1 },
+  { map: 'plain', capacity: 1.25 },
+  { map: 'islands', capacity: 0.65 },
+  { map: 'halves', capacity: 1 },
+];
+
 /** Overlay partial overrides (from a tuning file, the environment panel or a URL) on the defaults. */
 export function withOverrides(o: Overrides = {}): WorldParams {
+  const society = { ...DEFAULT_SOCIETY, ...(o.society ?? {}) };
+  // A link can carry anything: an unknown map or a capacity that is not a positive number falls back.
+  if (!FOOD_MAPS.includes(society.foodMap)) society.foodMap = DEFAULT_SOCIETY.foodMap;
+  if (!(Number.isFinite(society.foodCapacity) && society.foodCapacity > 0)) society.foodCapacity = DEFAULT_SOCIETY.foodCapacity;
   return {
     cells: { ...DEFAULT_CELLS, ...(o.cells ?? {}) },
-    society: { ...DEFAULT_SOCIETY, ...(o.society ?? {}) },
+    society,
     ticksPerGen: o.ticksPerGen ?? DEFAULT_WORLD.ticksPerGen,
     founders: o.founders ?? DEFAULT_WORLD.founders,
     homelands: o.homelands ?? DEFAULT_WORLD.homelands,

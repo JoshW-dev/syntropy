@@ -26,9 +26,30 @@ import { TRIBE_NAMES, groupName } from './names.ts';
 /** Most cells one body can hold. */
 export const MAXB = 32;
 
+/**
+ * Where food can grow (see placeFood). Every map is built from the same six centres:
+ *   zones   : a wide fertile zone at each centre over a thin base. The model the paper measured.
+ *   plain   : the zones' food spread evenly over every cell.
+ *   islands : zones at half the width over nearly bare water, holding the zones' total food.
+ *   halves  : the zones, with 0.4 times the food where x < 0 and 1.6 times where x >= 0.
+ */
+export type FoodMap = 'zones' | 'plain' | 'islands' | 'halves';
+export const FOOD_MAPS: readonly FoodMap[] = ['zones', 'plain', 'islands', 'halves'];
+
+/** The islands map: zone width as a share of zoneSigma, and the food base between islands. */
+const ISLAND_WIDTH = 0.5;
+const ISLAND_BASE = 0.01;
+/** The halves map: food multiplier on the poor side (x < 0) and on the rich side. */
+export const HALF_POOR = 0.4;
+export const HALF_RICH = 1.6;
+
 export interface SocietyParams {
   maxN: number;
   // world and food
+  /** The shape of the food field. Read once, when the world is built. */
+  foodMap: FoodMap;
+  /** Food the field can hold, as a multiple of what the map holds at 1. Read once, like foodMap. */
+  foodCapacity: number;
   foodRes: number;
   foodZones: number;
   zoneSigma: number;
@@ -132,6 +153,8 @@ export interface SocietyParams {
 // as wide a volume as before (late population about 450 on 24 seeds, as with the drop).
 export const DEFAULT_SOCIETY: SocietyParams = {
   maxN: 1400,
+  foodMap: 'zones',
+  foodCapacity: 1,
   foodRes: 16,
   foodZones: 6,
   zoneSigma: 0.4,
@@ -369,6 +392,8 @@ export class Society {
   readonly F: number;
   food: Float32Array;
   cap: Float32Array;
+  /** The most food one cell can hold on this map. No rule reads it; a viewer scales the stipple by it. */
+  foodCeil = 1;
   zones: { x: number; y: number; z: number }[] = [];
 
   events: SimEvent[] = [];
@@ -525,21 +550,44 @@ export class Society {
       centres.push({ ...best, amp: rng.range(0.75, 1) });
     }
     this.zones = centres.map(({ x, y, z }) => ({ x, y, z }));
-    const inv2s2 = 1 / (2 * p.zoneSigma * p.zoneSigma);
-    for (let z = 0; z < F; z++) {
-      for (let y = 0; y < F; y++) {
-        for (let x = 0; x < F; x++) {
-          const wx = ((x + 0.5) / F) * 2 - 1;
-          const wy = ((y + 0.5) / F) * 2 - 1;
-          const wz = ((z + 0.5) / F) * 2 - 1;
-          let c = p.foodBase;
-          for (const o of centres) c += o.amp * Math.exp(-((wx - o.x) ** 2 + (wy - o.y) ** 2 + (wz - o.z) ** 2) * inv2s2);
-          const i = x + F * (y + F * z);
-          this.cap[i] = Math.min(1, c);
-          this.food[i] = this.cap[i];
+    const cap = this.cap;
+    // A base level plus one Gaussian zone per centre, at most 1 per cell. Returns the total.
+    const paint = (sigma: number, base: number): number => {
+      const inv2s2 = 1 / (2 * sigma * sigma);
+      let total = 0;
+      for (let z = 0; z < F; z++) {
+        for (let y = 0; y < F; y++) {
+          for (let x = 0; x < F; x++) {
+            const wx = ((x + 0.5) / F) * 2 - 1;
+            const wy = ((y + 0.5) / F) * 2 - 1;
+            const wz = ((z + 0.5) / F) * 2 - 1;
+            let c = base;
+            for (const o of centres) c += o.amp * Math.exp(-((wx - o.x) ** 2 + (wy - o.y) ** 2 + (wz - o.z) ** 2) * inv2s2);
+            const i = x + F * (y + F * z);
+            cap[i] = Math.min(1, c);
+            total += cap[i];
+          }
         }
       }
+      return total;
+    };
+    // Every map starts from the zones, and the other three rearrange that food. The capacity dial
+    // then scales the whole field. With the zones at capacity 1 nothing below changes a cell.
+    const zonesTotal = paint(p.zoneSigma, p.foodBase);
+    let ceil = 1;
+    if (p.foodMap === 'plain') {
+      ceil = zonesTotal / cap.length;
+      cap.fill(ceil);
+    } else if (p.foodMap === 'islands') {
+      ceil = zonesTotal / paint(p.zoneSigma * ISLAND_WIDTH, ISLAND_BASE);
+      for (let i = 0; i < cap.length; i++) cap[i] *= ceil;
+    } else if (p.foodMap === 'halves') {
+      ceil = HALF_RICH;
+      for (let i = 0; i < cap.length; i++) cap[i] *= i % F < F / 2 ? HALF_POOR : HALF_RICH;
     }
+    if (p.foodCapacity !== 1) for (let i = 0; i < cap.length; i++) cap[i] *= p.foodCapacity;
+    this.foodCeil = ceil * p.foodCapacity;
+    this.food.set(cap);
   }
 
   /**

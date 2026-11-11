@@ -706,6 +706,97 @@ a:focus-visible {
   color: var(--muted);
 }
 
+/* The food map: four maps to pick from, each drawn as its six centres, then its capacity dial. */
+.food,
+.fp,
+.env-rules {
+  margin-top: 14px;
+}
+
+.env .pop-h {
+  margin: 0 0 4px;
+}
+
+.env .pop-h .due {
+  color: var(--figure);
+  font-weight: 500;
+}
+
+.food-maps {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 2px 4px;
+  margin: 0 -8px;
+}
+
+.map-ico {
+  flex: none;
+  fill: var(--ink);
+}
+
+.food-hint {
+  min-height: 2.9em;
+  margin: 6px 0 0;
+  font-size: 13px;
+  line-height: 1.45;
+  color: var(--muted);
+}
+
+.food .knob {
+  margin-top: 6px;
+}
+
+/* A restart is due: the button that does it carries the ink. */
+.env-actions .btn.due {
+  background: var(--ink);
+  color: var(--ground);
+}
+
+.env-actions .btn.due:hover {
+  background: var(--figure);
+}
+
+/* The fingerprint: six measurements of the running world, each a number over what it counts. The
+   block keeps clear of the Paper tab, which hangs on the panel's right edge when the paper is folded. */
+.fp {
+  padding-right: 10px;
+}
+
+.fp-list {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px 16px;
+  margin: 0;
+}
+
+.fp-list dd {
+  margin: 0;
+  font: 400 19px/24px var(--sans);
+  color: var(--figure);
+  font-variant-numeric: tabular-nums;
+}
+
+.fp-list dt {
+  font-size: 12px;
+  line-height: 1.35;
+  color: var(--muted);
+}
+
+.fp.empty .fp-list {
+  display: none;
+}
+
+.fp.empty::after {
+  content: 'Nothing to measure until the first organism comes loose.';
+  font-size: 13px;
+  color: var(--muted);
+}
+
+/* the sliders that follow change the running world */
+.env .env-rules {
+  margin: 18px 0 -6px;
+}
+
 .knob {
   margin-top: 10px;
 }

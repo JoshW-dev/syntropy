@@ -43,6 +43,7 @@ Everything here reads the simulation and changes nothing in it, except the one b
 - **One organism's choice.** Clicking an organism opens a card with every option it can see and the score of each: its odds of winning nearby, times the share it keeps after tax, times the control left through the ranks above it. A lens on the world draws how far it sees and a line to each leader it could follow. The card also lists the chain of command above it and its direct followers, and each of those can be picked.
 - **Remove a leader.** A leader's card has a button that removes it. Time slows, its former members light up, and a meter shows how much of the group has regrouped under one new leader against the 60% line. The strike goes into the link as `?k=`, so a shared link replays the same history.
 - **History.** The History button draws the world as it happens. Each group that grew to 15 or more is a band as tall as its members, with a mark for every leader's death. A click pins a year and replays the world from its seed up to that year, and the chart saves as an image.
+- **Food maps and a fingerprint.** The Environment panel has four food maps: the six fertile zones (the default, and the world the paper measured), an even plain, six tight islands, and a rich half beside a poor half. A dial sets how much food the world holds, the map applies when the world restarts, and the link carries both. Below the picker the panel measures the running society from outside: the share of organisms in groups of 15 or more, the share outside any group of 5, how many others each organism can see, the ranks below a leader, fights per 1,000 organisms, and how often a group of 20 or more outlives its leader. No rule reads the map's name or any of those numbers.
 - **The paper beside the world.** In the side pane the paper has buttons that run its claims in the world on the left: set fear to 0, start again with no fights, remove the largest group's leader. Two of its figures draw the running world over the 48-world result.
 
 ## The paper
@@ -71,6 +72,12 @@ npm run sweep -- --sets 200 --refine 90 --seeds 6 --ticks 9000
 ```
 
 The sweep searches 26 parameters on worker threads, refines around the best sets and confirms the winner on 16 seeds it never trained on. It scores worlds on whether every level appears in order at a pace you can watch, whether several groups coexist, and whether chains of command stay readable. The current defaults came out of it.
+
+```bash
+npm run fingerprint -- --maps zones,plain,islands,halves --seeds 16 --ticks 12000
+```
+
+That runs 16 worlds under each food map and prints the fingerprint of each one, averaged over the second half of the run. It adds median group size, the share of members from another lineage than their leader's, and median group life to the numbers the panel shows. A condition can also be `map:capacity`, such as `islands:0.75`.
 
 ```bash
 npm run experiments
