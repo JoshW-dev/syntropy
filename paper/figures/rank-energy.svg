@@ -42,7 +42,7 @@
 <text x="56" y="90.8" text-anchor="end">1</text>
 <line x1="60" x2="64" y1="42.5" y2="42.5" stroke="#555555"/>
 <text x="56" y="46.5" text-anchor="end">1.2</text>
-<text x="343" y="348" text-anchor="middle" fill="#444444">Rank (0 = ruler or loner)</text>
+<text x="343" y="348" text-anchor="middle" fill="#444444">Rank (0 = leader or loner)</text>
 <text transform="translate(16 162) rotate(-90)" text-anchor="middle" fill="#444444">Stored energy per cell</text>
 <line x1="430.79999999999995" x2="448.79999999999995" y1="24" y2="24" stroke="#CA9839" stroke-width="2.2" />
 <text x="454.79999999999995" y="28" font-size="11.5">Median across worlds (IQR)</text>

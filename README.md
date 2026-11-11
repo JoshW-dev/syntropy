@@ -1,12 +1,14 @@
 # Syntropy
 
-![Realms of voxel organisms hanging from their rulers, coloured by lineage](docs/hero.png)
+![Groups of voxel organisms hanging from their leaders, coloured by lineage](docs/hero.png)
 
 ### [**Watch it run →**](https://syntropy-sim.vercel.app) &nbsp; [**Read the paper →**](https://syntropy-sim.vercel.app/paper/) &nbsp; [PDF](https://syntropy-sim.vercel.app/paper/syntropy.pdf)
 
-Syntropy is a 3D take on Conway's Game of Life that keeps climbing. Coloured cells on a lattice settle into forms. Each form that holds its shape for twenty generations comes loose as an organism made of exactly those cells, in exactly that place, while the rest of the lattice keeps running until it settles and its last cells dissolve. Organisms eat, grow a cell when they have surplus, burn one when they starve, split in two, fight and age. Then they start following each other, and the world climbs through tribes and hierarchies to realms that regroup under a new ruler when the old one dies.
+Syntropy is a 3D take on Conway's Game of Life that keeps climbing. Coloured cells on a lattice settle into forms. Each form that holds its shape for twenty generations comes loose as an organism made of exactly those cells, in exactly that place, while the rest of the lattice keeps running until it settles and its last cells dissolve. Organisms eat, grow a cell when they have surplus, burn one when they starve, split in two, fight and age. Then they start following each other, and the world climbs through tribes and hierarchies to groups that regroup under a new leader when the old one dies.
 
-None of that is scripted. There's no rule for tribes, ranks, conquest, rebellion, heirs or government. Every organism makes one choice, over and over: follow whoever keeps it safest, net of the tribute it would pay, or follow no one. Conquest, secession and succession all fall out of that one choice, and the ladder on the left of the screen only reports what a measurement noticed.
+None of that is scripted. There's no rule for tribes, ranks, takeovers, splits, heirs or government. Every organism makes one choice, over and over: follow whoever keeps it safest, net of the tax it would pay, or follow no one. Takeovers, splits and successions all come out of that one choice, and the ladder on the left of the screen only reports what a measurement noticed.
+
+The aim is to watch social behaviour come out of first principles, a handful of physical rules and one choice, and to see what follows from them.
 
 It runs in your browser with no server behind it, and each world has a seed in the URL, so a link replays the same history.
 
@@ -16,36 +18,36 @@ It runs in your browser with no server behind it, and each world has a seed in t
 | --- | --- | --- |
 | 1. Cells | 3D Life on a 48³ lattice: a dead cell with 7 or 8 live neighbours is born, a live cell with 1 to 5 survives. Newborns take the most common lineage around them. | The lattice starts alive |
 | 2. Organisms | A form that keeps its place and size for 20 generations comes loose as one body made of its cells. Intake and upkeep scale with mass^0.75 (Kleiber's law). Surplus builds a cell, deficit burns one, and a body of 12 cells splits in two. | The first form comes loose |
-| 3. Tribes | Organisms choose whom to follow by local safety, net of tribute. Kin threaten each other less and tax each other less. | 3 groups of 10+, mostly kin, follow one chief |
-| 4. Hierarchy | Fights are Tullock contests between the local mass of two polities, and the loser loses cells to the winner. Tribute flows up every chain. | A realm of 30+ rules other lineages through 4 ranks |
-| 5. Government | When a ruler dies nobody inherits, and every orphan chooses again. | 60% of a realm of 30+ regroup under one new ruler within 240 ticks |
+| 3. Tribes | Organisms choose whom to follow by local safety, net of tax. Kin threaten each other less and tax each other less. | 3 groups of 10+, mostly kin, each follow one leader |
+| 4. Hierarchy | Fights are Tullock contests between the local mass of two groups, and the loser loses cells to the winner. Tax flows up every chain. | A group of 30+ has 4 ranks and members from other lineages |
+| 5. Government | When a leader dies nobody inherits, and every follower it had chooses again. | 60% of a group of 30+ regroup under one new leader within 240 ticks |
 
 Levels can only be reached in order.
 
 ## Reading the picture
 
 - Every organism is drawn as its own cells, in the colour of the lineage it came from (Blue, Red, Gold, Green, Violet or Rose).
-- A line runs from every follower up to its lord, in the colour of the ruler's lineage, so a Blue line on a Red body means Blue rules it.
-- Each rank is drawn one step below its lord, so a realm hangs from its ruler like an upside-down tree. The step exists only in the drawing, and the simulation never sees it.
-- A ring marks a ruler, and it darkens as the realm grows.
-- The faint stipple is food. It thins where a realm grazes and grows back after.
+- A line runs from every follower up to its leader, in the colour of the top leader's lineage, so a Blue line on a Red body means a Blue leader heads its group.
+- Each rank is drawn one step below its leader, so a group hangs from its top leader like an upside-down tree. The step exists only in the drawing, and the simulation never sees it.
+- A ring marks a leader, and it darkens as the group grows.
+- The faint stipple is food. It thins where a group grazes and grows back after.
 - Hovering an organism traces its chain of command and shows its rank, size and age.
-- The Look menu switches between Paper (the default), Night, Blueprint, Ink and Nebula. The Environment panel changes food, fighting, tribute, kinship, control loss, lifespan and choice noise live, and the URL carries your settings.
+- The Look menu switches between Paper (the default), Night, Blueprint, Ink and Nebula. The Environment panel changes food, fighting, tax, kinship, control loss, lifespan and choice noise live, and the URL carries your settings.
 
 ## Looking inside
 
-Everything here reads the simulation and changes nothing in it, except the one button that removes a ruler.
+Everything here reads the simulation and changes nothing in it, except the one button that removes a leader.
 
 - **Captions and a guided camera.** A narrator says what just happened and why no rule asked for it, and the camera moves in on it. The Look menu switches off the captions, the guided camera and the slow rotation (`R`).
-- **Realms.** The list under the ladder shows each realm with its members, its ranks and the lineages inside it. Pointing at a row lights that realm and pales the rest, and a click follows its ruler.
-- **One organism's choice.** Clicking an organism opens a card with every option it can see and the score of each: its odds of winning nearby, times the share it keeps after tribute, times the control left through the ranks above it. A lens on the world draws how far it sees and a line to each lord it could follow. The card also lists the chain of command above it and its direct followers, and each of those can be picked.
-- **Remove a ruler.** A ruler's card has a button that removes it. Time slows, its former members light up, and a meter shows how much of the realm has regrouped under one new ruler against the 60% line. The strike goes into the link as `?k=`, so a shared link replays the same history.
-- **History.** The History button draws the world as it happens. Each realm that grew to 15 or more is a band as tall as its members, with a mark for every ruler's death. A click pins a year and replays the world from its seed up to that year, and the chart saves as an image.
-- **The paper beside the world.** In the side pane the paper has buttons that run its claims in the world on the left: set fear to 0, start again with no fights, remove the largest realm's ruler. Two of its figures draw the running world over the 48-world result.
+- **Groups.** The list under the ladder shows each group with its members, its ranks and the lineages inside it. Pointing at a row lights that group and pales the rest, and a click follows its leader.
+- **One organism's choice.** Clicking an organism opens a card with every option it can see and the score of each: its odds of winning nearby, times the share it keeps after tax, times the control left through the ranks above it. A lens on the world draws how far it sees and a line to each leader it could follow. The card also lists the chain of command above it and its direct followers, and each of those can be picked.
+- **Remove a leader.** A leader's card has a button that removes it. Time slows, its former members light up, and a meter shows how much of the group has regrouped under one new leader against the 60% line. The strike goes into the link as `?k=`, so a shared link replays the same history.
+- **History.** The History button draws the world as it happens. Each group that grew to 15 or more is a band as tall as its members, with a mark for every leader's death. A click pins a year and replays the world from its seed up to that year, and the chart saves as an image.
+- **The paper beside the world.** In the side pane the paper has buttons that run its claims in the world on the left: set fear to 0, start again with no fights, remove the largest group's leader. Two of its figures draw the running world over the 48-world result.
 
 ## The paper
 
-[Syntropy: From Cells to Government](https://syntropy-sim.vercel.app/paper/) is the full write-up: the model, the derivation of the allegiance rule (the Kelly criterion applied to Hobbes' bargain), the measurements, and the experiments. Those are a 48-world baseline, ablations of every ingredient, a phase diagram over fear and tribute, an analysis of what makes a realm survive its ruler, and the search behind the lattice rule. Every number in it is filled in from the experiment output when the paper is built.
+[Syntropy: From Cells to Government](https://syntropy-sim.vercel.app/paper/) is the full write-up: the model, the derivation of the allegiance rule (the Kelly criterion applied to Hobbes' bargain), the measurements, and the experiments. Those are a 48-world baseline, ablations of every ingredient, a phase diagram over fear and tax, an analysis of what makes a group survive its leader, and the search behind the lattice rule. Every number in it is filled in from the experiment output when the paper is built.
 
 ## Tuning and experiments without graphics
 
@@ -59,16 +61,16 @@ That prints one world's history as a chronicle, at 100 ticks to a year:
 
 ```
 y  3 *** Organisms: a Gold form holds together and comes loose from the lattice.
-y  9 *** Tribes: 3 kin groups now follow chiefs.
-y 17 *** Hierarchy: Kais rules 4 tribes through 6 ranks.
-y 42 *** Government: Kais outlives its ruler: 61% of 36 regroup under a new ruler.
+y  9 *** Tribes: 3 kin groups now follow leaders.
+y 17 *** Hierarchy: Kais has 6 ranks and members from 4 lineages.
+y 42 *** Government: Kais outlives its leader: 61% of 36 regroup under a new leader.
 ```
 
 ```bash
 npm run sweep -- --sets 200 --refine 90 --seeds 6 --ticks 9000
 ```
 
-The sweep searches 26 parameters on worker threads, refines around the best sets and confirms the winner on 16 seeds it never trained on. It scores worlds on whether every level appears in order at a pace you can watch, whether several realms coexist, and whether chains of command stay readable. The current defaults came out of it.
+The sweep searches 26 parameters on worker threads, refines around the best sets and confirms the winner on 16 seeds it never trained on. It scores worlds on whether every level appears in order at a pace you can watch, whether several groups coexist, and whether chains of command stay readable. The current defaults came out of it.
 
 ```bash
 npm run experiments
@@ -80,7 +82,7 @@ These regenerate the paper's data (about five minutes on 16 threads), draw its f
 
 ## How consistent it is
 
-All 48 seeded worlds in the paper's baseline climbed the whole ladder within 150 simulated years. The median world formed tribes in year 9.4, a hierarchy in year 22.8 and a government in year 37.8, which at the default speed comes about a minute after the first organism. The ablations switch off one ingredient at a time on 32 worlds each. Without fear of unallied neighbours nothing forms at all, while worlds with no fights, no tribute or no kin preference still reached government every time. The phase diagram in the paper maps where in fear and tribute each level stops appearing.
+All 48 seeded worlds in the paper's baseline climbed the whole ladder within 150 simulated years. The median world formed tribes in year 9.4, a hierarchy in year 22.8 and a government in year 37.8, which at the default speed comes about a minute after the first organism. The ablations switch off one ingredient at a time on 32 worlds each. Without fear of unallied neighbours nothing forms at all, while worlds with no fights, no tax or no kin preference still reached government every time. The phase diagram in the paper maps where in fear and tax each level stops appearing.
 
 ## Running it
 
@@ -94,7 +96,7 @@ npm run dev
 ## Layout
 
 - `src/sim/cells.ts` is the lattice and form tracking.
-- `src/sim/society.ts` holds the organisms, the allegiance rule, polities, events and ladder checks.
+- `src/sim/society.ts` holds the organisms, the allegiance rule, groups, events and ladder checks.
 - `src/sim/world.ts` joins the two levels into one continuous world.
 - `src/sim/score.ts` turns a run into numbers and a score.
 - `src/render/` draws cubes, rings, lines and food, and holds the themes.

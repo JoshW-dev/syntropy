@@ -127,8 +127,8 @@ export class Card {
     const realmName = realm ? `<b style="color:var(--t${realm.tribe})">${realm.name}</b>` : '';
     const below = s.subSize[i] - 1;
     let role: string;
-    if (s.lord[i] < 0) role = realm ? `Rules ${realmName}, with ${below} below it.` : below > 0 ? `Leads a band of ${below}.` : 'Answers to no one.';
-    else role = `Rank ${s.depth[i] + 1}${realm ? ` in ${realmName}` : ''}. It follows a ${this.tribe(s.tribe[s.lord[i]])} lord${below > 0 ? `, and ${below} follow it` : ''}.`;
+    if (s.lord[i] < 0) role = realm ? `Leads ${realmName}, with ${below} below it.` : below > 0 ? `Leads a small group of ${below}.` : 'Follows no one.';
+    else role = `Rank ${s.depth[i] + 1}${realm ? ` in ${realmName}` : ''}. It follows a ${this.tribe(s.tribe[s.lord[i]])} leader${below > 0 ? `, and ${below} follow it` : ''}.`;
     const origin = s.origin[i] === 1 ? `Came loose from the lattice in year ${year(s.born[i])}.` : `Born when its parent split, in year ${year(s.born[i])}.`;
     const n = s.switches[i];
     const changes = n === 0 ? 'It has kept its first choice.' : `It has changed its choice ${n} time${n === 1 ? '' : 's'}.`;
@@ -147,9 +147,9 @@ export class Card {
     // The chain of command above it, and its direct followers below: each one can be picked.
     const above: number[] = [];
     for (let k = s.lord[i], guard = 0; k >= 0 && guard < 64; k = s.lord[k], guard++) above.unshift(k);
-    const link = (k: number) => `<span class="pick" data-pick="${k}">${s.lord[k] < 0 ? 'ruler' : `rank ${s.depth[k] + 1}`}</span>`;
+    const link = (k: number) => `<span class="pick" data-pick="${k}">${s.lord[k] < 0 ? 'top leader' : `rank ${s.depth[k] + 1}`}</span>`;
     const shownAbove = above.length > 4 ? [link(above[0]), '…', ...above.slice(-2).map(link)] : above.map(link);
-    const chain = above.length ? `${shownAbove.join(' › ')} › <b>this one</b>` : s.subSize[i] > 1 ? '<b>ruler</b>' : '';
+    const chain = above.length ? `${shownAbove.join(' › ')} › <b>this one</b>` : s.subSize[i] > 1 ? '<b>top leader</b>' : '';
     if (this.chain.innerHTML !== chain) this.chain.innerHTML = chain;
     const direct: number[] = [];
     for (let c = s.firstChild[i]; c >= 0; c = s.nextSib[c]) direct.push(c);
@@ -170,10 +170,10 @@ export class Card {
       const bin = succession.bySpread.find((b) => spread >= b.lo && spread < b.hi);
       const odds =
         bin && bin.n >= 10
-          ? `In the paper's 48 worlds, realms this compact outlived their ruler ${pct(bin.rate)} of the time.`
+          ? `In the paper's 48 worlds, groups this compact outlived their leader ${pct(bin.rate)} of the time.`
           : spread >= 1.2
-            ? "Almost no realm in the paper's 48 worlds was spread this wide."
-            : 'The paper found that compact realms outlive their rulers more often.';
+            ? "Almost no group in the paper's 48 worlds was spread this wide."
+            : 'The paper found that compact groups outlive their leaders more often.';
       const html = `Its ${below} members sit ${spread.toFixed(2)} perception radii from their centre on average. ${odds}`;
       if (this.realm.innerHTML !== html) this.realm.innerHTML = html;
     }
@@ -183,12 +183,12 @@ export class Card {
     if (lordUid !== this.lastLord) {
       this.lastLord = lordUid;
       this.entries.push(
-        `<span>year ${year(s.tick)}</span> ${lordUid === 0 ? 'Left its lord. It answers to no one.' : `Now follows a ${this.tribe(s.tribe[s.lord[i]])} lord${realm ? ` in ${realmName}` : ''}.`}`,
+        `<span>year ${year(s.tick)}</span> ${lordUid === 0 ? 'Left its leader. It follows no one.' : `Now follows a ${this.tribe(s.tribe[s.lord[i]])} leader${realm ? ` in ${realmName}` : ''}.`}`,
       );
     }
     if (s.realmOf[i] !== this.lastRealm) {
       this.lastRealm = s.realmOf[i];
-      if (this.lastRealm >= 0) this.entries.push(`<span>year ${year(s.tick)}</span> Now rules ${realmName}.`);
+      if (this.lastRealm >= 0) this.entries.push(`<span>year ${year(s.tick)}</span> Now leads ${realmName}.`);
     }
     const log = this.entries.slice(-3).map((e) => `<p>${e}</p>`).join('');
     if (this.log.innerHTML !== log) this.log.innerHTML = log;
@@ -200,22 +200,22 @@ export class Card {
     let name: string;
     let dot: string;
     if (o.lord < 0) {
-      name = 'Answer to no one';
+      name = 'Follow no one';
       dot = '<i class="opt-dot none"></i>';
     } else {
       const rid = s.realmOf[o.root];
       const t = s.tribe[o.root];
       const rank = s.depth[o.lord] + 2;
-      const where = rid >= 0 ? `<b style="color:var(--t${s.realms[rid].tribe})">${s.realms[rid].name}</b>` : `a ${this.tribe(t)} band`;
+      const where = rid >= 0 ? `<b style="color:var(--t${s.realms[rid].tribe})">${s.realms[rid].name}</b>` : `a small ${this.tribe(t)} group`;
       const kin = s.tribe[o.lord] === s.tribe[this.slot] ? ', kin' : '';
-      name = `Follow a ${this.tribe(s.tribe[o.lord])} lord in ${where} <span>rank ${rank}${kin}</span>`;
+      name = `Follow a ${this.tribe(s.tribe[o.lord])} leader in ${where} <span>rank ${rank}${kin}</span>`;
       dot = `<i class="opt-dot" style="background:var(--t${t})"></i>`;
     }
     const odds = o.allies / (o.allies + o.threat);
     const terms = [`<span title="Its side's share of the mass it can see: the odds of winning a fight here">odds ${pct(odds)}</span>`];
-    if (o.tax < 0) terms.push(`<span title="Share of income left after tribute">keeps ${pct(Math.exp(o.tax))}</span>`);
-    if (o.rank > 0) terms.push(`<span title="Protection left after the ranks between it and the ruler">control ${pct(Math.exp(-o.rank))}</span>`);
-    if (Math.abs(o.other) > 0.004) terms.push(`<span title="Distance to the lord, and a small bonus for keeping the current choice">ties ${Math.exp(-o.other).toFixed(2)}</span>`);
+    if (o.tax < 0) terms.push(`<span title="Share of income left after tax">keeps ${pct(Math.exp(o.tax))}</span>`);
+    if (o.rank > 0) terms.push(`<span title="Protection left after the ranks between it and the top leader">control ${pct(Math.exp(-o.rank))}</span>`);
+    if (Math.abs(o.other) > 0.004) terms.push(`<span title="Distance to the leader, and a small bonus for keeping the current choice">ties ${Math.exp(-o.other).toFixed(2)}</span>`);
     const tag = current ? '<em>its choice now</em>' : better ? '<em class="next">scores higher: it would switch</em>' : '';
     return (
       `<div class="opt-row${current ? ' cur' : ''}">` +

@@ -62,8 +62,8 @@ if (base) {
     bands: [{ points: band('syntropy'), color: PALETTE.blue, opacity: 0.14 }, { points: band('organized'), color: PALETTE.green, opacity: 0.12 }],
     series: [
       { type: 'line', points: at('syntropy', 0.5), color: PALETTE.blue, label: 'Syntropy Σ (median, IQR)', width: 2.2 },
-      { type: 'line', points: at('organized', 0.5), color: PALETTE.green, label: 'Share in major realms', width: 2 },
-      { type: 'line', points: at('largestShare', 0.5), color: PALETTE.red, label: 'Share in the largest realm', width: 1.6, dash: '5 4' },
+      { type: 'line', points: at('organized', 0.5), color: PALETTE.green, label: 'Share in major groups', width: 2 },
+      { type: 'line', points: at('largestShare', 0.5), color: PALETTE.red, label: 'Share in the largest group', width: 1.6, dash: '5 4' },
     ],
     legend: 'top-left',
   }));
@@ -121,8 +121,8 @@ if (base) {
   // Succession: what predicts that a realm survives its ruler?
   const succ = base.flatMap((r) => r.successions).filter((s) => s.members >= 20);
   save('succession', chart({
-    x: { min: 0, max: 1, label: "Largest direct branch's share of the realm at the ruler's death", format: (v) => `${Math.round(v * 100)}%` },
-    y: { min: 0, max: 1, label: 'Share that regrouped under one ruler', format: (v) => `${Math.round(v * 100)}%` },
+    x: { min: 0, max: 1, label: "Largest direct branch's share of the group at the leader's death", format: (v) => `${Math.round(v * 100)}%` },
+    y: { min: 0, max: 1, label: 'Share that regrouped under one leader', format: (v) => `${Math.round(v * 100)}%` },
     hlines: [{ y: 0.6, color: PALETTE.muted, dash: '4 4', label: 'government threshold (60%)' }],
     series: [
       { type: 'scatter', points: succ.filter((s) => s.survived).map((s) => [s.heirShare, s.keep]), color: PALETTE.blue, label: 'Survived', r: 3.2, opacity: 0.65 },
@@ -147,8 +147,8 @@ if (base) {
       series: [{ type: 'line', points: pts.map((p) => [p.x, p.rate] as [number, number]), color, width: 2.2 }, { type: 'scatter', points: pts.map((p) => [p.x, p.rate] as [number, number]), color, r: 3.5, opacity: 1 }],
     });
   };
-  save('succession-heir', binned('heirShare', [0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0], "Largest branch's share at the ruler's death", PALETTE.gold, (v) => `${Math.round(v * 100)}%`));
-  save('succession-spread', binned('spread', [0.5, 0.65, 0.8, 0.95, 1.1, 1.25, 1.4], 'Mean distance from the realm centre (perception radii)', PALETTE.violet, (v) => v.toFixed(1)));
+  save('succession-heir', binned('heirShare', [0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0], "Largest branch's share at the leader's death", PALETTE.gold, (v) => `${Math.round(v * 100)}%`));
+  save('succession-spread', binned('spread', [0.5, 0.65, 0.8, 0.95, 1.1, 1.25, 1.4], 'Mean distance from the group centre (perception radii)', PALETTE.violet, (v) => v.toFixed(1)));
   // Survival rate in bins of heir share and of spread.
   const bin = (key: 'heirShare' | 'spread', edges: number[]) => edges.slice(0, -1).map((lo, i) => {
     const hi = edges[i + 1];
@@ -169,8 +169,8 @@ if (base) {
   const sizes = base.flatMap((r) => r.realmSizes).sort((a, b) => a - b);
   const ccdf: [number, number][] = sizes.map((s, i) => [s, (sizes.length - i) / sizes.length]);
   save('sizes', chart({
-    x: { min: 5, max: Math.max(10, sizes[sizes.length - 1] ?? 10) * 1.1, label: 'Realm size (organisms)', log: true, ticks: [5, 10, 20, 50, 100, 200] },
-    y: { min: Math.min(0.5, 1 / Math.max(1, sizes.length)), max: 1, label: 'Share of realms at least this big', log: true, ticks: [0.01, 0.02, 0.05, 0.1, 0.2, 0.5, 1] },
+    x: { min: 5, max: Math.max(10, sizes[sizes.length - 1] ?? 10) * 1.1, label: 'Group size (organisms)', log: true, ticks: [5, 10, 20, 50, 100, 200] },
+    y: { min: Math.min(0.5, 1 / Math.max(1, sizes.length)), max: 1, label: 'Share of groups at least this big', log: true, ticks: [0.01, 0.02, 0.05, 0.1, 0.2, 0.5, 1] },
     series: [{ type: 'scatter', points: ccdf, color: PALETTE.violet, r: 2.4, opacity: 0.6 }],
   }));
   summary.sizes = { n: sizes.length, median: quantile(sizes, 0.5), p90: quantile(sizes, 0.9), max: sizes[sizes.length - 1] };
@@ -179,7 +179,7 @@ if (base) {
   const maxRank = 9;
   const byRank = Array.from({ length: maxRank }, (_, d) => base.map((r) => r.energyByRank[d]).filter((v) => Number.isFinite(v)));
   save('rank-energy', chart({
-    x: { min: -0.5, max: maxRank - 0.5, label: 'Rank (0 = ruler or loner)', ticks: Array.from({ length: maxRank }, (_, d) => d) },
+    x: { min: -0.5, max: maxRank - 0.5, label: 'Rank (0 = leader or loner)', ticks: Array.from({ length: maxRank }, (_, d) => d) },
     y: { min: 0, max: Math.max(1.2, ...byRank.map((v) => quantile(v, 0.75) || 0)) * 1.1, label: 'Stored energy per cell' },
     bands: [{ points: byRank.map((v, d) => [d, quantile(v, 0.25), quantile(v, 0.75)] as [number, number, number]).filter((p) => Number.isFinite(p[1])), color: PALETTE.gold, opacity: 0.18 }],
     series: [{ type: 'line', points: byRank.map((v, d) => [d, quantile(v, 0.5)] as [number, number]).filter((p) => Number.isFinite(p[1])), color: PALETTE.gold, width: 2.2, label: 'Median across worlds (IQR)' }],
@@ -246,9 +246,9 @@ if (phase) {
     return c.runs.filter((r) => r.levels[3] >= 0).length / c.runs.length;
   }));
   const syn = phase.fights.map((f) => phase.taus.map((tau) => quantile(cell(tau, f).runs.map((r) => r.summary.syntropy), 0.5)));
-  save('phase-gov', heatmap({ xs: phase.taus, ys: phase.fights, values: gov, min: 0, max: 1, xLabel: 'Tribute rate τ', yLabel: 'Fight rate φ', title: 'Worlds reaching Government', valueFormat: (v) => `${Math.round(v * 100)}` }));
-  save('phase-hier', heatmap({ xs: phase.taus, ys: phase.fights, values: hier, min: 0, max: 1, xLabel: 'Tribute rate τ', yLabel: 'Fight rate φ', title: 'Worlds reaching Hierarchy', valueFormat: (v) => `${Math.round(v * 100)}` }));
-  save('phase-syntropy', heatmap({ xs: phase.taus, ys: phase.fights, values: syn, min: 0, max: Math.max(0.3, ...syn.flat()), xLabel: 'Tribute rate τ', yLabel: 'Fight rate φ', title: 'Median syntropy Σ, second half', valueFormat: (v) => v.toFixed(2) }));
+  save('phase-gov', heatmap({ xs: phase.taus, ys: phase.fights, values: gov, min: 0, max: 1, xLabel: 'Tax rate τ', yLabel: 'Fight rate φ', title: 'Worlds reaching Government', valueFormat: (v) => `${Math.round(v * 100)}` }));
+  save('phase-hier', heatmap({ xs: phase.taus, ys: phase.fights, values: hier, min: 0, max: 1, xLabel: 'Tax rate τ', yLabel: 'Fight rate φ', title: 'Worlds reaching Hierarchy', valueFormat: (v) => `${Math.round(v * 100)}` }));
+  save('phase-syntropy', heatmap({ xs: phase.taus, ys: phase.fights, values: syn, min: 0, max: Math.max(0.3, ...syn.flat()), xLabel: 'Tax rate τ', yLabel: 'Fight rate φ', title: 'Median syntropy Σ, second half', valueFormat: (v) => v.toFixed(2) }));
   summary.phase = { taus: phase.taus, fights: phase.fights, gov, hier, syn };
 }
 
@@ -264,8 +264,8 @@ if (pf) {
   const hier = share(3);
   const tribes = share(2);
   const syn = pf.fears.map((fear) => pf.taus.map((tau) => quantile(cell(fear, tau).runs.map((r) => r.summary.syntropy), 0.5)));
-  save('phase-fear-gov', heatmap({ xs: pf.taus, ys: pf.fears, values: gov, min: 0, max: 1, xLabel: 'Tribute rate \u03c4', yLabel: 'Fear \u03c9', title: 'Worlds reaching Government (%)', valueFormat: (v) => `${Math.round(v * 100)}` }));
-  save('phase-fear-syntropy', heatmap({ xs: pf.taus, ys: pf.fears, values: syn, min: 0, max: Math.max(0.3, ...syn.flat()), xLabel: 'Tribute rate \u03c4', yLabel: 'Fear \u03c9', title: 'Median syntropy \u03a3', valueFormat: (v) => v.toFixed(2) }));
+  save('phase-fear-gov', heatmap({ xs: pf.taus, ys: pf.fears, values: gov, min: 0, max: 1, xLabel: 'Tax rate \u03c4', yLabel: 'Fear \u03c9', title: 'Worlds reaching Government (%)', valueFormat: (v) => `${Math.round(v * 100)}` }));
+  save('phase-fear-syntropy', heatmap({ xs: pf.taus, ys: pf.fears, values: syn, min: 0, max: Math.max(0.3, ...syn.flat()), xLabel: 'Tax rate \u03c4', yLabel: 'Fear \u03c9', title: 'Median syntropy \u03a3', valueFormat: (v) => v.toFixed(2) }));
   summary.phaseFear = { fears: pf.fears, taus: pf.taus, gov, hier, tribes, syn };
 }
 

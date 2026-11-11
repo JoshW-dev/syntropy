@@ -1444,6 +1444,6 @@
 <text x="56" y="47.9" text-anchor="end">0.5</text>
 <line x1="60" x2="64" y1="16.0" y2="16.0" stroke="#555555"/>
 <text x="56" y="20.0" text-anchor="end">1</text>
-<text x="343" y="348" text-anchor="middle" fill="#444444">Realm size (organisms)</text>
-<text transform="translate(16 162) rotate(-90)" text-anchor="middle" fill="#444444">Share of realms at least this big</text>
+<text x="343" y="348" text-anchor="middle" fill="#444444">Group size (organisms)</text>
+<text transform="translate(16 162) rotate(-90)" text-anchor="middle" fill="#444444">Share of groups at least this big</text>
 </svg>

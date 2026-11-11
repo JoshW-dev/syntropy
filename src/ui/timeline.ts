@@ -164,7 +164,7 @@ export class Timeline {
     if (this.title.textContent !== title) this.title.textContent = title;
     const notable = s.realms.filter((r) => r.notable);
     const fell = notable.filter((r) => r.ended >= 0).length;
-    const sub = `${notable.length} realm${notable.length === 1 ? ' has' : 's have'} risen, and ${fell} ${fell === 1 ? 'has' : 'have'} ended.`;
+    const sub = `${notable.length} group${notable.length === 1 ? ' has' : 's have'} grown to 15 or more, and ${fell} ${fell === 1 ? 'has' : 'have'} ended.`;
     if (this.sub.textContent !== sub) this.sub.textContent = sub;
   }
 
@@ -378,7 +378,7 @@ export class Timeline {
     const sn = snaps[k];
     let inRealms = 0;
     for (let q = 0; q < sn.realms.length; q += 2) if (s.realms[sn.realms[q]]?.notable) inRealms += sn.realms[q + 1];
-    const lines = [`<b>Year ${Math.floor(sn.tick / TICKS_PER_YEAR)}</b>: ${sn.pop} organisms, ${sn.pop ? Math.round((inRealms / sn.pop) * 100) : 0}% in major realms`];
+    const lines = [`<b>Year ${Math.floor(sn.tick / TICKS_PER_YEAR)}</b>: ${sn.pop} organisms, ${sn.pop ? Math.round((inRealms / sn.pop) * 100) : 0}% in major groups`];
     for (const [id, list] of this.bands) {
       const sl = list.find((x) => x.k === k);
       const r = s.realms[id];
@@ -421,7 +421,7 @@ export class Timeline {
     ctx.font = `14px ${FONT}`;
     ctx.textAlign = 'left';
     ctx.fillStyle = c.ink;
-    ctx.fillText('Each band is a realm that grew to 15 or more, as tall as its members. Grey is everyone else. No rule in the simulation names a realm.', 48, 572);
+    ctx.fillText('Each band is a group that grew to 15 or more, as tall as its members. Grey is everyone else. No rule in the simulation names a group.', 48, 572);
     ctx.fillStyle = c.muted;
     const query = location.search;
     ctx.fillText(`${SITE}/${query}#${app.seed}`, 48, 598);

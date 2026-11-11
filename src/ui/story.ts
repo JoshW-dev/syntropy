@@ -136,28 +136,28 @@ export class Story {
       } else if (e.level === 2) {
         this.say({
           kicker: 'Tribes', high: true, seconds: 10, aim: this.largestRuler(), fresh: () => s.levels[3] < 0,
-          body: `${rest} No rule mentions tribes or chiefs. Kin threaten each other less and pay each other less tribute, so kin are the first to group.`,
+          body: `${rest} No rule mentions tribes or leaders. Kin threaten each other less and pay each other less tax, so kin are the first to group.`,
         });
       } else if (e.level === 3) {
         this.say({
           kicker: 'Hierarchy', high: true, seconds: 10, aim, fresh: () => s.levels[4] < 0,
-          body: `${rest} No rule mentions ranks. A chief that chooses to follow another chief brings its followers along, and that makes a rank.`,
+          body: `${rest} No rule mentions ranks. A leader that chooses to follow another leader brings its followers along, and that makes a rank.`,
         });
       } else if (e.level === 4 && !(this.watch && aim && s.realmOf[aim.slot] === this.watch.realm)) {
         this.say({
           kicker: 'Government', high: true, seconds: 11, aim,
-          body: `${rest} The realm is now more than its ruler. No rule names an heir: the members chose again, and most chose alike.`,
+          body: `${rest} The group is now more than its leader. No rule names an heir: the members chose again, and most chose alike.`,
           action: { label: "See this world's history", run: () => this.onHistory() },
         });
       }
       return;
     }
     if (e.kind === 'conquest') {
-      this.say({ kicker: 'Conquest', high: false, seconds: 8, aim, body: `${rest} No rule says conquer. Its ruler lost a fight, and then chose the winner as its lord.` });
+      this.say({ kicker: 'A takeover', high: false, seconds: 8, aim, body: `${rest} No rule says take over. Its leader lost a fight, and then chose to follow the winner.` });
     } else if (e.kind === 'join') {
-      this.say({ kicker: 'A realm submits', high: false, seconds: 8, aim, body: `${rest} Nobody forced it. For its ruler, following now scores higher than standing alone.` });
+      this.say({ kicker: 'Two groups merge', high: false, seconds: 8, aim, body: `${rest} Nobody forced it. For its leader, following now scores higher than standing alone.` });
     } else if (e.kind === 'rebellion') {
-      this.say({ kicker: 'Rebellion', high: false, seconds: 8, aim, body: `${rest} No rule says rebel. For their leader, standing alone now scores higher than paying tribute, and its followers come along.` });
+      this.say({ kicker: 'A split', high: false, seconds: 8, aim, body: `${rest} No rule says split. For the one they follow, standing alone now scores higher than paying tax, and its followers come along.` });
     } else if (e.kind === 'life' && e.text.startsWith('The lattice')) {
       this.say({ kicker: 'The lattice ends', high: false, seconds: 8, body: `${rest} The organisms never read the lattice, so nothing they do changes.` });
     }
@@ -185,7 +185,7 @@ export class Story {
       if (f >= 0 && app.world.tick < 40 * TICKS_PER_YEAR && s.levels[2] < 0) {
         this.say({
           kicker: 'The first follower', high: true, seconds: 11, aim: { slot: f, uid: s.uid[f] }, dist: 4.3, fresh: () => s.levels[2] < 0,
-          body: `One organism now follows another. It pays ${pct(s.p.tribute)} of its income as tribute and counts its lord's mass as protection. Every organism makes this one choice, again and again. It is the only social rule.`,
+          body: `One organism now follows another. It passes ${pct(s.p.tribute)} of its income to its leader as tax, and counts its leader's mass as protection. Every organism makes this one choice, again and again. It is the only social rule.`,
         });
       }
     }
@@ -222,8 +222,8 @@ export class Story {
     const name = `<b style="color:var(--t${w.tribe})">${w.name}</b>`;
     const years = +(s.p.govWindow / TICKS_PER_YEAR).toFixed(1);
     this.paint(
-      `${name} has no ruler`,
-      `${viewer ? 'You removed it.' : 'Its ruler died.'} Nobody inherits. Each of its ${w.members} members now chooses again, by the same rule as always. If ${pct(s.p.govKeep)} regroup under one new ruler within ${years} years, the realm has outlived its ruler.`,
+      `${name} has no leader`,
+      `${viewer ? 'You removed it.' : 'Its leader died.'} Nobody inherits. Each of its ${w.members} members now chooses again, by the same rule as always. If ${pct(s.p.govKeep)} regroup under one new leader within ${years} years, the group has outlived its leader.`,
     );
     this.mark.style.left = pct(s.p.govKeep);
     this.meter.hidden = false;
@@ -241,7 +241,7 @@ export class Story {
     this.app.spotMask = mask;
     this.fill.style.width = pct(w.keep);
     this.fill.classList.toggle('over', w.keep >= this.app.world.society.p.govKeep);
-    this.readA.textContent = `${pct(w.keep)} under one ruler`;
+    this.readA.textContent = `${pct(w.keep)} under one leader`;
     const left = Math.max(0, w.due - this.app.world.tick) / TICKS_PER_YEAR;
     this.readB.textContent = `${left.toFixed(1)} years left`;
   }
@@ -270,16 +270,16 @@ export class Story {
       this.show({
         kicker: first ? `Government: ${name} holds` : `${name} holds`, high: true, seconds: 11,
         body: counts
-          ? `${keep} of its ${rec.members} members regrouped under one new ruler. The realm outlived its ruler, which is this model's test for government. No rule names an heir: they chose again, and most chose alike.`
-          : `${keep} of its ${rec.members} members regrouped under one new ruler. The ladder counts this as government only for a realm of ${s.p.govSize} or more.`,
+          ? `${keep} of its ${rec.members} members regrouped under one new leader. The group outlived its leader, which is this model's test for government. No rule names an heir: they chose again, and most chose alike.`
+          : `${keep} of its ${rec.members} members regrouped under one new leader. The ladder counts this as government only for a group of ${s.p.govSize} or more.`,
         action: first ? { label: "See this world's history", run: () => this.onHistory() } : undefined,
       });
     } else if (rec.keep >= s.p.govKeep) {
-      this.show({ kicker: `${name} is absorbed`, high: true, seconds: 9, body: `${keep} regrouped, but under a ruler that already heads another realm. The model counts that as absorption, so the realm ends.` });
+      this.show({ kicker: `${name} is absorbed`, high: true, seconds: 9, body: `${keep} regrouped, but under a leader that already heads another group. The model counts that as absorption, so the group ends.` });
     } else {
       this.show({
         kicker: `${name} breaks apart`, high: true, seconds: 10,
-        body: `The largest piece kept ${keep}, below the ${line} line. Each member weighed the neighbours it could see. They saw different neighbours, so they chose different lords.`,
+        body: `The largest piece kept ${keep}, below the ${line} line. Each member weighed the neighbours it could see. They saw different neighbours, so they chose different leaders.`,
       });
     }
   }

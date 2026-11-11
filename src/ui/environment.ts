@@ -24,14 +24,14 @@ const plain = (v: number) => `${+v.toFixed(4)}`;
 const years = (v: number) => `${+(v / TICKS_PER_YEAR).toFixed(1)} years`;
 
 const KNOBS: Knob[] = [
-  { key: 'fear', label: 'Fear', hint: 'Weight each organism gives to unallied mass nearby when it chooses whom to follow. At 0 no lord is worth its tribute, and nothing forms.', min: 0, max: 2, step: 0.05, show: plain },
+  { key: 'fear', label: 'Fear', hint: 'Weight each organism gives to unallied mass nearby when it chooses whom to follow. At 0 no leader is worth its tax, and nothing forms.', min: 0, max: 2, step: 0.05, show: plain },
   { key: 'regrow', label: 'Food regrowth', hint: 'How fast eaten food grows back.', min: 0.003, max: 0.04, step: 0.0005, show: percent },
   { key: 'fightChance', label: 'Fight chance', hint: 'How likely two touching rivals are to fight. Hungry ones fight more, kin less.', min: 0, max: 0.15, step: 0.005, show: percent },
-  { key: 'tribute', label: 'Tribute', hint: 'Share of income each follower passes up to its lord.', min: 0, max: 0.9, step: 0.01, show: percent },
-  { key: 'kinShare', label: 'Kin discount', hint: 'How much less tribute an organism pays a lord of its own tribe.', min: 0, max: 1, step: 0.01, show: percent },
-  { key: 'controlLoss', label: 'Control loss', hint: 'Protection lost for each rank between a follower and its ruler. Higher keeps realms flatter.', min: 0, max: 0.3, step: 0.005, show: plain },
+  { key: 'tribute', label: 'Tax', hint: 'Share of income each follower passes up to its leader.', min: 0, max: 0.9, step: 0.01, show: percent },
+  { key: 'kinShare', label: 'Kin discount', hint: 'How much less tax an organism pays a leader of its own lineage.', min: 0, max: 1, step: 0.01, show: percent },
+  { key: 'controlLoss', label: 'Control loss', hint: 'Protection lost for each rank between a follower and its top leader. Higher keeps groups flatter.', min: 0, max: 0.3, step: 0.005, show: plain },
   { key: 'lifespan', label: 'Lifespan', hint: 'Average life of an organism. Applies to organisms born after the change.', note: 'applies to newborns', min: 1500, max: 6000, step: 50, show: years },
-  { key: 'temperature', label: 'Choice noise', hint: 'How often organisms follow someone other than the best lord. At 0 they always pick the best.', min: 0, max: 0.2, step: 0.005, show: plain },
+  { key: 'temperature', label: 'Choice noise', hint: 'How often organisms follow someone other than the best leader. At 0 they always pick the best.', min: 0, max: 0.2, step: 0.005, show: plain },
 ];
 
 // Read at runtime, so a retune of the defaults shows up here without edits.

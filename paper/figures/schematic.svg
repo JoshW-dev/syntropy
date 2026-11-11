@@ -50,7 +50,7 @@
   <text x="555" y="216" text-anchor="middle" font-size="12">fight, age, die</text>
   <!-- arrow 3 -->
   <line x1="622" y1="112" x2="702" y2="112" stroke="#555" stroke-width="1.2" marker-end="url(#arr)"/>
-  <text x="662" y="102" text-anchor="middle" font-size="12">choose a lord</text>
+  <text x="662" y="102" text-anchor="middle" font-size="12">choose a leader</text>
   <!-- 4. polity: a hanging tree -->
   <g stroke="#1F6AEA" stroke-width="1.4">
     <line x1="790" y1="62" x2="752" y2="102"/><line x1="790" y1="62" x2="790" y2="104"/><line x1="790" y1="62" x2="830" y2="102"/>
@@ -63,5 +63,5 @@
     <rect x="731" y="137" width="9" height="9" fill="#5EAAD4"/><rect x="759" y="139" width="9" height="9" fill="#FCD561"/><rect x="817" y="139" width="9" height="9" fill="#D45E5E"/><rect x="843" y="137" width="9" height="9" fill="#D45E5E"/>
   </g>
   <text x="790" y="200" text-anchor="middle" font-size="12">follow whoever keeps you</text>
-  <text x="790" y="216" text-anchor="middle" font-size="12">safest, net of tribute</text>
+  <text x="790" y="216" text-anchor="middle" font-size="12">safest, after tax</text>
 </svg>

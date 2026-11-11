@@ -24,8 +24,8 @@ if (window.self !== window.top) {
     'no-fear': ['Set fear to 0', 'Fear is 0. Restore it'],
     'no-fights': ['Restart this world with no fights', 'Fights are off. Restore them'],
     'no-control-loss': ['Set control loss to 0', 'Control loss is 0. Restore it'],
-    'high-tribute': ['Raise tribute to 90%', 'Tribute is 90%. Restore it'],
-    'kill-king': ['Remove the ruler of the largest realm'],
+    'high-tribute': ['Raise tax to 90%', 'Tax is 90%. Restore it'],
+    'kill-king': ['Remove the leader of the largest group'],
   };
   const send = (message: Record<string, unknown>) => window.parent.postMessage(message, location.origin);
   const buttons = new Map<string, HTMLButtonElement>();

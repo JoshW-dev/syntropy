@@ -24,19 +24,19 @@ interface Experiment {
 const EXPERIMENTS: Experiment[] = [
   {
     id: 'no-fear', what: 'fear is 0', set: { fear: 0 }, kicker: 'Fear is off',
-    body: 'Each organism now gives no weight to unallied mass nearby, so no lord is worth its tribute. Followers leave at their next choice, within one year. The paper found fear to be the one ingredient nothing forms without.',
+    body: 'Each organism now gives no weight to unallied mass nearby, so no leader is worth its tax. Followers leave at their next choice, within one year. The paper found fear to be the one ingredient nothing forms without.',
   },
   {
     id: 'no-fights', what: 'fights are off', set: { fightChance: 0 }, restart: true, kicker: 'No fights, from year 0',
-    body: 'This world starts again with fighting switched off. Watch whether realms still form. In the paper they do: a strong neighbour is a threat whether or not it ever attacks.',
+    body: 'This world starts again with fighting switched off. Watch whether groups still form. In the paper they do: a strong neighbour is a threat whether or not it ever attacks.',
   },
   {
     id: 'no-control-loss', what: 'control loss is 0', set: { controlLoss: 0 }, kicker: 'Control loss is off',
-    body: 'Protection no longer fades with each rank between a follower and its ruler. Chains of command are now free to grow much deeper, and the largest realm can hold far more.',
+    body: 'Protection no longer fades with each rank between a follower and its top leader. Chains of command are now free to grow much deeper, and the largest group can hold far more.',
   },
   {
-    id: 'high-tribute', what: 'tribute is 90%', set: { tribute: 0.9 }, kicker: 'Tribute is 90%',
-    body: 'A lord now takes nearly everything a follower gathers. For most followers, standing alone scores higher, so they leave at their next choice.',
+    id: 'high-tribute', what: 'tax is 90%', set: { tribute: 0.9 }, kicker: 'Tax is 90%',
+    body: 'A leader now takes nearly everything a follower gathers. For most followers, standing alone scores higher, so they leave at their next choice.',
   },
 ];
 
@@ -104,7 +104,7 @@ export class Bridge {
       else story.tell('No organism yet', 'Wait for the first form to come loose from the lattice, then try again.', 6);
     } else if (id === 'kill-king') {
       const realm = s.standingRealms()[0];
-      if (!realm || !story.strike(realm.sovereign)) story.tell('No realm yet', 'Wait until a realm forms, then try again.', 6);
+      if (!realm || !story.strike(realm.sovereign)) story.tell('No group yet', 'Wait until a group forms, then try again.', 6);
     } else if (id === 'handoff') {
       app.start(app.seed, app.getOverrides());
       app.setSpeed(1);

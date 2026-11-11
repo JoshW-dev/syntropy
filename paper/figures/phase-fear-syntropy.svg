@@ -142,6 +142,6 @@
 <text x="58" y="110.3" text-anchor="end">0.8</text>
 <text x="58" y="79.0" text-anchor="end">1</text>
 <text x="58" y="47.7" text-anchor="end">1.4</text>
-<text x="235" y="348" text-anchor="middle" font-size="12">Tribute rate τ</text>
+<text x="235" y="348" text-anchor="middle" font-size="12">Tax rate τ</text>
 <text transform="translate(16 169) rotate(-90)" text-anchor="middle" font-size="12">Fear ω</text>
 </svg>

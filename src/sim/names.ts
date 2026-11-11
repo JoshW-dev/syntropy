@@ -22,7 +22,7 @@ export function realmName(rng: Rng, taken: Set<string>): string {
       return name;
     }
   }
-  const fallback = `Realm ${taken.size + 1}`;
+  const fallback = `Group ${taken.size + 1}`;
   taken.add(fallback);
   return fallback;
 }

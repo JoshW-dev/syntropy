@@ -1349,7 +1349,7 @@ export class Society {
       if (from >= 0 && this.realms[from].notable && n >= Math.max(8, 0.15 * this.realms[from].size)) {
         const foreign = tribe[i] !== this.realms[from].tribe;
         this.stats.rebellions++;
-        this.emit('rebellion', `${n} ${foreign ? `${TRIBE_NAMES[tribe[i]]} subjects` : 'followers'} break away from ${this.realms[from].name}.`, undefined, i);
+        this.emit('rebellion', `${n} ${foreign ? `${TRIBE_NAMES[tribe[i]]} members` : 'members'} split from ${this.realms[from].name}.`, undefined, i);
       }
       return;
     }
@@ -1362,7 +1362,7 @@ export class Society {
       const r = this.realms[realmI];
       const host = this.realmLabel(hostRoot);
       if (r.notable) {
-        const verb = lostTo === hostRoot ? 'falls to' : tribe[i] === tribe[hostRoot] ? 'joins its kin in' : 'submits to';
+        const verb = lostTo === hostRoot ? 'is taken over by' : tribe[i] === tribe[hostRoot] ? 'joins its kin in' : 'joins';
         this.emit(lostTo === hostRoot ? 'conquest' : 'join', `${r.name} ${verb} ${host} (${this.subSize[i]}).`, undefined, i);
       }
       this.endRealm(realmI);
@@ -1426,7 +1426,7 @@ export class Society {
     const n = members.length;
     if (n === 0) {
       const r = this.realms[realmId];
-      if (r.notable) this.emit('fall', `${r.name} ends with its last ruler.`);
+      if (r.notable) this.emit('fall', `${r.name} ends when its last leader dies.`);
       this.endRealm(realmId);
       return;
     }
@@ -1478,14 +1478,14 @@ export class Society {
         realm.rulers++;
         if (members >= this.p.govSize) {
           this.stats.successions++;
-          const detail = `${realm.name} outlives its ruler: ${Math.round(keep * 100)}% of ${members} regroup under a new ruler.`;
+          const detail = `${realm.name} outlives its leader: ${Math.round(keep * 100)}% of ${members} regroup under a new leader.`;
           if (this.levels[L_GOVERNMENT] < 0 && this.levels[L_HIERARCHY] >= 0) this.reach(L_GOVERNMENT, `Government: ${detail}`, bestRoot);
           else this.emit('succession', detail, undefined, bestRoot);
         }
       } else {
         if (members >= this.p.govSize) {
           this.stats.fragmentations++;
-          this.emit('fragment', `${realm.name} breaks apart after its ruler dies (the largest piece keeps ${Math.round(keep * 100)}%).`);
+          this.emit('fragment', `${realm.name} breaks apart after its leader dies (the largest piece keeps ${Math.round(keep * 100)}%).`);
         }
         this.endRealm(ps.realm);
       }
@@ -1629,17 +1629,17 @@ export class Society {
       if (subDepth[r] > deepest) deepest = subDepth[r];
       if (!realm.notable && size >= p.notableSize) {
         realm.notable = true;
-        const verb = ['rises', 'forms', 'takes shape'][realm.id % 3];
-        this.emit('realm', `${realm.name} ${verb}: ${size} follow a ${TRIBE_NAMES[tribe[r]]} chief.`, undefined, r);
+        const verb = ['comes together', 'forms', 'takes shape'][realm.id % 3];
+        this.emit('realm', `${realm.name} ${verb}: ${size} follow a ${TRIBE_NAMES[tribe[r]]} leader.`, undefined, r);
       }
       if (size >= p.hierSize && subDepth[r] >= p.hierDepth && realm.tribes >= p.hierTribes && size - this.kinCount[r] >= p.hierForeign * size) {
         if (!hierarchy || size > subSize[hierarchy.r]) hierarchy = { r, tribes: realm.tribes, depth: subDepth[r] };
       }
     }
-    if (tribesLed >= p.tribeCount) this.reach(L_TRIBES, `Tribes: ${tribesLed} kin groups now follow chiefs.`);
+    if (tribesLed >= p.tribeCount) this.reach(L_TRIBES, `Tribes: ${tribesLed} kin groups now follow leaders.`);
     if (hierarchy) {
       const name = this.realms[realmOf[hierarchy.r]].name;
-      this.reach(L_HIERARCHY, `Hierarchy: ${name} rules ${hierarchy.tribes} tribes through ${hierarchy.depth + 1} ranks.`, hierarchy.r);
+      this.reach(L_HIERARCHY, `Hierarchy: ${name} has ${hierarchy.depth + 1} ranks and members from ${hierarchy.tribes} lineages.`, hierarchy.r);
     }
     if (deepest > this.stats.maxDepth) this.stats.maxDepth = deepest;
     if (largest > this.stats.maxRealm) this.stats.maxRealm = largest;
@@ -1666,7 +1666,7 @@ export class Society {
   private realmLabel(rootSlot: number): string {
     const rid = this.realmOf[rootSlot];
     if (rid >= 0) return this.realms[rid].name;
-    return `a ${TRIBE_NAMES[this.tribe[rootSlot]]} band`;
+    return `a small ${TRIBE_NAMES[this.tribe[rootSlot]]} group`;
   }
 
   emit(kind: EventKind, text: string, level?: number, slot?: number): void {
@@ -1708,8 +1708,8 @@ export class Society {
   strike(slot: number): boolean {
     if (slot < 0 || !this.alive[slot]) return false;
     const rid = this.lord[slot] < 0 ? this.realmOf[slot] : NONE;
-    const who = rid >= 0 ? `the ruler of ${this.realms[rid].name}` : `a ${TRIBE_NAMES[this.tribe[slot]]} organism`;
-    this.emit('hand', `A hand from outside the world removes ${who}.`);
+    const who = rid >= 0 ? `the leader of ${this.realms[rid].name}` : `a ${TRIBE_NAMES[this.tribe[slot]]} organism`;
+    this.emit('hand', `Intervention: ${who} is removed from outside the model.`);
     this.strikes++;
     this.kill(slot);
     return true;

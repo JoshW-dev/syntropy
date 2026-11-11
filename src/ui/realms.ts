@@ -116,13 +116,13 @@ export class Realms {
         key = `r${r.sovereign}|${html.join('|')}`;
         row.el.dataset.slot = String(r.sovereign);
         row.el.dataset.realm = '1';
-        row.el.title = `${r.name}: a ${this.tribeName(r.tribe)} ruler, founded in year ${Math.floor(r.founded / 100)}, ruler number ${r.rulers}. Click to follow it.`;
+        row.el.title = `${r.name}: founded by a ${this.tribeName(r.tribe)} leader in year ${Math.floor(r.founded / 100)}, now on leader number ${r.rulers}. Click to follow it.`;
       } else {
-        html = ['', 'Outside any realm', '', String(outside), ''];
+        html = ['', 'In no group', '', String(outside), ''];
         key = `o|${outside}`;
         row.el.dataset.slot = String(loner);
         row.el.dataset.realm = '0';
-        row.el.title = 'Organisms that answer to no one, or sit in a band too small to count. Click to pick one.';
+        row.el.title = 'Organisms that follow no one, or sit in a group too small to count. Click to pick one.';
       }
       if (key === row.key) return;
       row.key = key;
@@ -136,7 +136,7 @@ export class Realms {
       row.d.textContent = html[4];
     });
     const more = standing.length - shown.length;
-    const text = standing.length === 0 ? 'No realm yet. A realm is five or more organisms under one ruler.' : more > 0 ? `and ${more} smaller realm${more === 1 ? '' : 's'} of ${s.p.realmMin} or more` : '';
+    const text = standing.length === 0 ? 'No group yet. A group is five or more organisms under one leader.' : more > 0 ? `and ${more} smaller group${more === 1 ? '' : 's'} of ${s.p.realmMin} or more` : '';
     if (this.rest.textContent !== text) this.rest.textContent = text;
     this.rest.hidden = text === '';
   }

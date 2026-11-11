@@ -45,9 +45,9 @@ function steps(p: WorldParams): Step[] {
   return [
     { name: LADDER[0], rule: `A dead cell with ${list(c.birth)} live neighbours is born. A live cell with ${list(c.survive)} survives.`, done: 'The lattice starts alive.' },
     { name: LADDER[1], rule: `A form that keeps its shape for ${c.holdGens} generations comes loose as one body. Bodies eat, grow a cell on surplus, burn one when starving, and split at ${s.splitMass} cells.`, done: 'Reached when the first form comes loose.' },
-    { name: LADDER[2], rule: 'Each organism follows whoever keeps it safest, net of the tribute it would pay. Kin tax each other less. A ring marks a chief.', done: `Reached when ${s.tribeCount} groups of ${s.tribeMin}+, mostly kin, follow one chief.` },
-    { name: LADDER[3], rule: "Losers of fights lose cells to the winner, and tribute flows up every chain. Followers hang below their lord on a line in the ruler's colour.", done: `Reached when a realm of ${s.hierSize}+ rules other tribes through ${s.hierDepth + 1} ranks.` },
-    { name: LADDER[4], rule: 'Nobody inherits anything. When a ruler dies, every follower chooses again.', done: `Reached when ${Math.round(s.govKeep * 100)}% of a realm of ${s.govSize}+ regroup under one new ruler.` },
+    { name: LADDER[2], rule: 'Each organism follows whoever keeps it safest, after the tax it would pay. Kin tax each other less. A ring marks a leader.', done: `Reached when ${s.tribeCount} groups of ${s.tribeMin}+, mostly kin, each follow one leader.` },
+    { name: LADDER[3], rule: "Losers of fights lose cells to the winner, and tax flows up every chain. Followers hang below their leader on a line in the top leader's colour.", done: `Reached when a group of ${s.hierSize}+ has ${s.hierDepth + 1} ranks and members from other lineages.` },
+    { name: LADDER[4], rule: 'Nobody inherits anything. When a leader dies, every follower chooses again.', done: `Reached when ${Math.round(s.govKeep * 100)}% of a group of ${s.govSize}+ regroup under one new leader.` },
   ];
 }
 
@@ -431,8 +431,8 @@ export class App {
     const below = s.subSize[slot] - 1;
     const age = Math.floor(s.age[slot] / TICKS_PER_YEAR);
     let role: string;
-    if (s.lord[slot] < 0) role = realm ? `rules <b>${realm.name}</b>` : below > 0 ? 'leads a small band' : 'answers to no one';
-    else role = `rank ${s.depth[slot] + 1}${realm ? ` in <b>${realm.name}</b>` : ''}, serves a ${this.hud.tribeWord(s.tribe[s.lord[slot]])}`;
+    if (s.lord[slot] < 0) role = realm ? `leads <b>${realm.name}</b>` : below > 0 ? 'leads a small group' : 'follows no one';
+    else role = `rank ${s.depth[slot] + 1}${realm ? ` in <b>${realm.name}</b>` : ''}, follows a ${this.hud.tribeWord(s.tribe[s.lord[slot]])} leader`;
     const lines = [`${tribe} organism, ${s.mass[slot]} cells, age ${age}`, role, below > 0 ? `${below} below it, ${s.nChild[slot]} direct` : 'no followers', '<i>Click to see its choice</i>'];
     this.hud.setTip(this.pointer.x, this.pointer.y, lines.join('<br>'));
   }
@@ -450,7 +450,7 @@ export class App {
     if (w.latticeActive && w.cells.population > 0) items.push(['Lattice cells', w.cells.population.toLocaleString()]);
     items.push(['Organisms', s.count.toLocaleString()]);
     if (s.count > 0) {
-      items.push(['Realms', String(major.length)]);
+      items.push(['Groups', String(major.length)]);
       items.push(['Largest', top ? `${top.name} ${top.size}` : 'none']);
       items.push(['Deepest chain', `${ranks} rank${ranks === 1 ? '' : 's'}`]);
     }

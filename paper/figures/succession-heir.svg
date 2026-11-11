@@ -39,6 +39,6 @@
 <text x="56" y="66.4" text-anchor="end">80%</text>
 <line x1="60" x2="64" y1="16.0" y2="16.0" stroke="#555555"/>
 <text x="56" y="20.0" text-anchor="end">100%</text>
-<text x="233" y="288" text-anchor="middle" fill="#444444">Largest branch's share at the ruler's death</text>
+<text x="233" y="288" text-anchor="middle" fill="#444444">Largest branch's share at the leader's death</text>
 <text transform="translate(16 132) rotate(-90)" text-anchor="middle" fill="#444444">Survived the succession test</text>
 </svg>

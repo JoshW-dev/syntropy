@@ -2408,8 +2408,8 @@
 <text x="56" y="78.4" text-anchor="end">80%</text>
 <line x1="60" x2="64" y1="16.0" y2="16.0" stroke="#555555"/>
 <text x="56" y="20.0" text-anchor="end">100%</text>
-<text x="343" y="348" text-anchor="middle" fill="#444444">Largest direct branch's share of the realm at the ruler's death</text>
-<text transform="translate(16 162) rotate(-90)" text-anchor="middle" fill="#444444">Share that regrouped under one ruler</text>
+<text x="343" y="348" text-anchor="middle" fill="#444444">Largest direct branch's share of the group at the leader's death</text>
+<text transform="translate(16 162) rotate(-90)" text-anchor="middle" fill="#444444">Share that regrouped under one leader</text>
 <circle cx="457.4" cy="270" r="3.5" fill="#1F6AEA"/>
 <text x="473.4" y="274" font-size="11.5">Survived</text>
 <circle cx="457.4" cy="285" r="3.5" fill="#EB2D2D"/>
