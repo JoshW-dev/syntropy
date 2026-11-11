@@ -78,7 +78,7 @@ npm install
 npm run dev
 ```
 
-`npm run build` writes a static site to `dist/`, with the simulation and the paper. It's Vite and Three.js with no server code, so a visit costs a few hundred kilobytes of static transfer and nothing else. Space pauses, `N` makes a new world, `H` hides the interface, and `1` to `4` set the speed.
+`npm run build` writes a static site to `dist/`, with the simulation and the paper. It's Vite and Three.js with no server code, so a visit costs a few hundred kilobytes of static transfer and nothing else. On screens 1180px and wider the paper opens beside the world, and the divider drags to resize it or folds either side away. Space pauses, `N` makes a new world, `H` hides the interface, `P` folds the paper, and `1` to `4` set the speed.
 
 ## Layout
 

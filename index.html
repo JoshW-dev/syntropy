@@ -25,6 +25,7 @@
     </script>
   </head>
   <body>
+    <div class="stage" id="stage">
     <canvas id="scene" aria-label="A 3D simulation of cells, organisms and realms"></canvas>
 
     <header class="mast">
@@ -103,11 +104,33 @@
 
     <footer class="foot">
       <span class="links">
-        <a href="/paper/">Paper</a>
+        <a href="/paper/" id="paper-link">Paper</a>
         <a href="https://github.com/JoshW-dev/syntropy" target="_blank" rel="noopener">GitHub</a>
       </span>
       <span id="seed-label"></span>
     </footer>
+    </div>
+
+    <!-- On wide screens the paper reads beside the world. Either side collapses to a tab on its edge. -->
+    <div class="divider" id="divider" hidden>
+      <div class="div-pair">
+        <button id="fold-sim" class="div-btn" aria-label="Collapse the simulation" title="Collapse the simulation">
+          <svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true"><path d="M10 3.5L5.5 8l4.5 4.5" /></svg>
+        </button>
+        <button id="fold-paper" class="div-btn" aria-label="Collapse the paper" title="Collapse the paper (P)">
+          <svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true"><path d="M6 3.5L10.5 8 6 12.5" /></svg>
+        </button>
+      </div>
+      <button id="open-paper" class="div-tab" title="Read the paper beside the world (P)">
+        <svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true"><path d="M10 3.5L5.5 8l4.5 4.5" /></svg><span>Paper</span>
+      </button>
+      <button id="open-sim" class="div-tab" title="Show the simulation beside the paper">
+        <span>Simulation</span><svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true"><path d="M6 3.5L10.5 8 6 12.5" /></svg>
+      </button>
+    </div>
+    <aside class="paper-pane" id="paper-pane" aria-label="The paper" hidden>
+      <iframe id="paper-frame" title="Syntropy: From Cells to Government"></iframe>
+    </aside>
 
     <script type="module" src="/src/main.ts"></script>
   </body>

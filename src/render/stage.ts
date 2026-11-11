@@ -47,6 +47,8 @@ export class Stage {
 
     this.resize();
     window.addEventListener('resize', () => this.resize());
+    // The canvas also changes size without the window, when the paper pane opens or closes beside it.
+    new ResizeObserver(() => this.resize()).observe(this.renderer.domElement);
   }
 
   setTheme(t: Theme): void {

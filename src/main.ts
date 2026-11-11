@@ -4,12 +4,14 @@ import './style.css';
 import { App, randomSeed, seedFromHash } from './app.ts';
 import { Environment } from './ui/environment.ts';
 import { decodeOverrides, readQuery } from './ui/query.ts';
+import { Split } from './ui/split.ts';
 import { View } from './ui/view.ts';
 
 const query = new URLSearchParams(location.search);
 const speed = Number(query.get('speed'));
 const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 const canvas = document.getElementById('scene') as HTMLCanvasElement;
+const split = new Split();
 try {
   const app = new App(canvas, {
     // Environment overrides: ?p=<base64url JSON of {"society": {...}}>, from the panel or a tuning file.
@@ -25,7 +27,7 @@ try {
   view.onHide = () => env.close(false);
   view.onOpen = () => env.close(false);
   env.onOpen = () => view.closeLook();
-  bindKeys(view, env);
+  bindKeys(view, env, split);
   app.run();
   // Dev only: drive the loop from the console when the tab is in the background.
   if (import.meta.env.DEV) (window as unknown as { __syntropy: App }).__syntropy = app;
@@ -40,7 +42,7 @@ try {
   document.body.appendChild(note);
 }
 
-function bindKeys(view: View, env: Environment): void {
+function bindKeys(view: View, env: Environment, split: Split): void {
   // Space on these controls presses them instead of pausing the world.
   for (const id of ['look', 'env-btn', 'env', 'show-ui']) {
     document.getElementById(id)?.addEventListener('keydown', (e) => {
@@ -59,5 +61,6 @@ function bindKeys(view: View, env: Environment): void {
     }
     if (e.metaKey || e.ctrlKey || e.altKey || e.repeat) return;
     if ((e.key === 'h' || e.key === 'H') && !typing(e.target)) view.toggleHidden();
+    if ((e.key === 'p' || e.key === 'P') && !typing(e.target)) split.toggle();
   });
 }
