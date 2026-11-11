@@ -1,12 +1,12 @@
 // The Environment panel: sliders for the society's main rules. Society code reads its parameters
 // every tick, so a slider changes the running world at once. The values also become the overrides
 // for the next restart or new world, and go into the page link as ?p= so Share passes them on.
-// The food map and its capacity are different: a world reads them once, when it is built, so they
-// set the next world and the panel says a restart is needed.
+// The food map, the water and the food capacity are different: a world reads them once, when it is
+// built, so they set the next world and the panel says a restart is needed.
 
 import { TICKS_PER_YEAR, type App } from '../app.ts';
-import { DEFAULT_SOCIETY, FOOD_MAPS, HALF_POOR, HALF_RICH, type FoodMap } from '../sim/society.ts';
-import { FOOD_PRESETS, type Overrides } from '../sim/world.ts';
+import { CLEAR, CLEAREST, DEFAULT_SOCIETY, FOOD_MAPS, HALF_POOR, HALF_RICH, MURKY, WATER_MAPS, type FoodMap, type WaterMap } from '../sim/society.ts';
+import { FOOD_PRESETS, WATER_PRESETS, type Overrides } from '../sim/world.ts';
 import { encodeOverrides, isEmpty, writeQuery } from './query.ts';
 
 interface Knob {
@@ -39,9 +39,22 @@ const FOOD: Record<FoodMap, { label: string; hint: string; glyph: string }> = {
   halves: { label: 'Rich and poor', hint: `The six zones, with ${HALF_RICH} times the food on one half of the world and ${HALF_POOR} times on the other.`, glyph: spots((x) => (x > 17 ? 5.5 : 4), (x) => (x > 17 ? 0.7 : 0.16)) },
 };
 
+/** Each water as a small tank: the darker the tint, the shorter the sight. */
+const tank = (inside: string) => `<rect x="1.5" y="2.5" width="31" height="17" rx="3" style="fill:none;stroke:var(--ink);stroke-opacity:0.45" />${inside}`;
+const tint = (x: number, w: number, o: number) => `<rect x="${x}" y="3" width="${w}" height="16" rx="2.5" opacity="${o}" />`;
+const far = (c: number) => `${+c.toFixed(2)} times as far as usual`;
+
+const WATER: Record<WaterMap, { label: string; hint: string; glyph: string }> = {
+  even: { label: 'Usual', hint: 'The same water everywhere. This is the world the paper measured.', glyph: tank(tint(2, 30, 0.18)) },
+  clear: { label: 'Clear', hint: `Clear water everywhere. Every organism sees ${far(CLEAREST)}.`, glyph: tank('') },
+  murky: { label: 'Murky', hint: `Murky water everywhere. Every organism sees ${far(MURKY)}.`, glyph: tank(tint(2, 30, 0.5)) },
+  halves: { label: 'Half murky', hint: `Murky water on one half of the world, clear on the other. Sight is ${+MURKY.toFixed(2)} and ${CLEAR} times the usual.`, glyph: tank(tint(2, 15, 0.5)) },
+  pockets: { label: 'Murky pockets', hint: `Clear water, with a ball of murk around three of the six food centres. Sight is ${+MURKY.toFixed(2)} and ${CLEAR} times the usual.`, glyph: tank([[9, 8], [19, 14], [27, 7]].map(([x, y]) => `<circle cx="${x}" cy="${y}" r="3.6" opacity="0.5" />`).join('')) },
+};
+
 const CAPACITY: Knob = {
   key: 'foodCapacity', label: 'Food capacity', note: 'applies on restart', min: 0.25, max: 2, step: 0.05, show: times,
-  hint: 'How much food the map can hold, as a multiple of what the six zones hold. Picking a map sets the amount at which a typical world holds 400 to 900 organisms.',
+  hint: 'How much food the map can hold, as a multiple of what the six zones hold. Picking a food map or a water sets the amount at which a typical world holds 400 to 900 organisms.',
 };
 
 const KNOBS: Knob[] = [
@@ -95,6 +108,9 @@ export class Environment {
   private mapRadios: HTMLInputElement[] = [];
   private mapHint = $<HTMLParagraphElement>('food-hint');
   private mapWhen = $<HTMLSpanElement>('food-when');
+  private waterRadios: HTMLInputElement[] = [];
+  private waterHint = $<HTMLParagraphElement>('water-hint');
+  private waterWhen = $<HTMLSpanElement>('water-when');
   private capacity!: Row;
   private urlTimer = 0;
   private narrow = window.matchMedia('(max-width: 760px)');
@@ -166,45 +182,55 @@ export class Environment {
     return row;
   }
 
-  /** The food map picker and its capacity dial. Both set the next world. */
+  /** The food map picker, the water picker and the capacity dial. All three set the next world. */
   private buildFood(): void {
-    const list = $<HTMLDivElement>('food-maps');
-    for (const map of FOOD_MAPS) {
-      const label = document.createElement('label');
-      label.className = 'opt';
-      label.title = FOOD[map].hint;
-      label.innerHTML =
-        `<input type="radio" name="food-map" value="${map}" />` +
-        `<svg class="map-ico" viewBox="0 0 34 22" width="34" height="22" aria-hidden="true">${FOOD[map].glyph}</svg>` +
-        `<span class="nm">${FOOD[map].label}</span>`;
-      const radio = label.querySelector('input')!;
-      radio.addEventListener('change', () => {
-        // A map comes with the capacity at which its world is neither empty nor full.
-        if (radio.checked) this.remember({ map, capacity: FOOD_PRESETS.find((f) => f.map === map)?.capacity ?? 1 });
+    const picker = <K extends string>(host: string, name: string, keys: readonly K[], info: Record<K, { label: string; hint: string; glyph: string }>, pick: (key: K) => void) =>
+      keys.map((key) => {
+        const label = document.createElement('label');
+        label.className = 'opt';
+        label.title = info[key].hint;
+        label.innerHTML =
+          `<input type="radio" name="${name}" value="${key}" />` +
+          `<svg class="map-ico" viewBox="0 0 34 22" width="34" height="22" aria-hidden="true">${info[key].glyph}</svg>` +
+          `<span class="nm">${info[key].label}</span>`;
+        const radio = label.querySelector('input')!;
+        radio.addEventListener('change', () => {
+          if (radio.checked) pick(key);
+        });
+        $<HTMLDivElement>(host).appendChild(label);
+        return radio;
       });
-      this.mapRadios.push(radio);
-      list.appendChild(label);
-    }
-    this.capacity = this.addKnob($<HTMLDivElement>('food-knob'), CAPACITY, this.nextFood().capacity, (v) => this.remember({ map: this.nextFood().map, capacity: v }));
+    // A food map and a water each come with a capacity at which the world is neither empty nor
+    // full, and the two multiply.
+    const paired = (map: FoodMap, water: WaterMap) =>
+      +((FOOD_PRESETS.find((f) => f.map === map)?.capacity ?? 1) * (WATER_PRESETS.find((f) => f.map === water)?.capacity ?? 1)).toFixed(4);
+    this.mapRadios = picker('food-maps', 'food-map', FOOD_MAPS, FOOD, (map) => this.remember({ ...this.nextFood(), map, capacity: paired(map, this.nextFood().water) }));
+    this.waterRadios = picker('water-maps', 'water-map', WATER_MAPS, WATER, (water) => this.remember({ ...this.nextFood(), water, capacity: paired(this.nextFood().map, water) }));
+    this.capacity = this.addKnob($<HTMLDivElement>('food-knob'), CAPACITY, this.nextFood().capacity, (v) => this.remember({ ...this.nextFood(), capacity: v }));
   }
 
-  /** The food settings the next world will be built with. */
-  private nextFood(): { map: FoodMap; capacity: number } {
+  /** The food and water settings the next world will be built with. */
+  private nextFood(): { map: FoodMap; water: WaterMap; capacity: number } {
     const s = this.app.params.society;
-    return { map: s.foodMap, capacity: s.foodCapacity };
+    return { map: s.foodMap, water: s.waterMap, capacity: s.foodCapacity };
   }
 
   private paintFood(): void {
     const next = this.nextFood();
     const running = this.app.world.params.society;
     for (const r of this.mapRadios) r.checked = r.value === next.map;
+    for (const r of this.waterRadios) r.checked = r.value === next.water;
     this.mapHint.textContent = FOOD[next.map].hint;
+    this.waterHint.textContent = WATER[next.water].hint;
     this.capacity.input.value = String(next.capacity);
     this.paint(this.capacity, next.capacity);
-    const waiting = next.map !== running.foodMap || !near(next.capacity, running.foodCapacity);
-    this.mapWhen.textContent = waiting ? 'restart to apply' : 'applies on restart';
-    this.mapWhen.classList.toggle('due', waiting);
-    this.restartBtn.classList.toggle('due', waiting);
+    const food = next.map !== running.foodMap || !near(next.capacity, running.foodCapacity);
+    const water = next.water !== running.waterMap;
+    for (const [el, waiting] of [[this.mapWhen, food], [this.waterWhen, water]] as [HTMLElement, boolean][]) {
+      el.textContent = waiting ? 'restart to apply' : 'applies on restart';
+      el.classList.toggle('due', waiting);
+    }
+    this.restartBtn.classList.toggle('due', food || water);
   }
 
   open(): void {
@@ -262,7 +288,7 @@ export class Environment {
 
   private foodIsDefault(): boolean {
     const next = this.nextFood();
-    return next.map === DEFAULT_SOCIETY.foodMap && near(next.capacity, DEFAULT_SOCIETY.foodCapacity);
+    return next.map === DEFAULT_SOCIETY.foodMap && next.water === DEFAULT_SOCIETY.waterMap && near(next.capacity, DEFAULT_SOCIETY.foodCapacity);
   }
 
   private paint(row: Row, v: number): void {
@@ -276,7 +302,7 @@ export class Environment {
   private reset(): void {
     const live = this.live();
     for (const row of this.rows) live[row.knob.key] = DEFAULTS[row.knob.key];
-    this.remember({ map: DEFAULT_SOCIETY.foodMap, capacity: DEFAULT_SOCIETY.foodCapacity });
+    this.remember({ map: DEFAULT_SOCIETY.foodMap, water: DEFAULT_SOCIETY.waterMap, capacity: DEFAULT_SOCIETY.foodCapacity });
     this.sync();
   }
 
@@ -291,9 +317,11 @@ export class Environment {
     let changed = 0;
     if (food.map === DEFAULT_SOCIETY.foodMap) delete society.foodMap;
     else society.foodMap = food.map;
+    if (food.water === DEFAULT_SOCIETY.waterMap) delete society.waterMap;
+    else society.waterMap = food.water;
     if (near(food.capacity, DEFAULT_SOCIETY.foodCapacity)) delete society.foodCapacity;
     else society.foodCapacity = food.capacity;
-    changed += Number('foodMap' in society) + Number('foodCapacity' in society);
+    changed += Number('foodMap' in society) + Number('waterMap' in society) + Number('foodCapacity' in society);
     for (const { knob } of this.rows) {
       const v = live[knob.key];
       if (near(v, DEFAULTS[knob.key])) delete society[knob.key];

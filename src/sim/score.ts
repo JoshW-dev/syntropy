@@ -74,11 +74,18 @@ export const REGROUP_MIN = 20;
 export const GROUP_LIFE_FROM = 2000;
 export const GROUP_LIFE_TAIL = 3000;
 
-/** The society at one tick. A share is NaN when there is nobody to take it of. */
+/** A part of the world, as a test on a place. Without one, a measurement covers the whole world. */
+export type Region = (x: number, y: number, z: number) => boolean;
+
+/**
+ * The society at one tick, in the whole world or in one region of it. A region's census counts the
+ * organisms that sit in the region and the groups whose leader sits in it. A group is always taken
+ * whole, wherever its members are. A share is NaN when there is nobody to take it of.
+ */
 export interface Census {
   tick: number;
   pop: number;
-  /** Fights so far in the run, so two censuses give a rate. */
+  /** Fights so far in the run (in the region, by where they happened), so two censuses give a rate. */
   fights: number;
   /** Share of organisms in groups of notableSize (15) or more. */
   inGroups: number;
@@ -92,8 +99,10 @@ export interface Census {
   groupSize: number;
   /** Share of a group's members from another lineage than its leader's, averaged over groups. */
   otherLineage: number;
-  /** Mean number of other organisms within an organism's perception radius. */
+  /** Mean number of other organisms within an organism's own perception radius. */
   inView: number;
+  /** Share of a region's organisms in a group of 5 or more whose leader sits outside it. NaN for the whole world. */
+  across: number;
 }
 
 export interface Fingerprint {
@@ -110,6 +119,7 @@ export interface Fingerprint {
   groupSize: number;
   otherLineage: number;
   inView: number;
+  across: number;
   /** Fights per 1,000 organisms per 1,000 ticks, between the first census and the last. */
   fights: number;
   /** Leader deaths in groups of REGROUP_MIN or more over the whole run, and how many regrouped. */
@@ -123,13 +133,26 @@ export interface Fingerprint {
   groupsTimed: number;
 }
 
+/**
+ * The parts of a world to measure apart: its murky water and its clear water when it holds both,
+ * and nothing when the water is the same everywhere.
+ */
+export function waterRegions(s: Society): { name: 'murky' | 'clear'; has: Region }[] {
+  if (!s.twoWaters) return [];
+  return [
+    { name: 'murky', has: (x, y, z) => s.murkyAt(x, y, z) },
+    { name: 'clear', has: (x, y, z) => !s.murkyAt(x, y, z) },
+  ];
+}
+
 /** Count the society as it stands: who is in a group, how the groups are built, how crowded it is. */
-export function census(s: Society): Census {
+export function census(s: Society, region?: Region): Census {
   const { M, alive, lord, tribe, pos, p } = s;
   // Follow each organism up to its top leader. The society's own tree arrays are a tick behind.
   const top = new Int32Array(M);
   const rank = new Int32Array(M);
   const size = new Int32Array(M);
+  const here = new Uint8Array(M);
   const ids: number[] = [];
   for (let i = 0; i < M; i++) {
     if (!alive[i]) continue;
@@ -142,18 +165,24 @@ export function census(s: Society): Census {
     top[i] = k;
     rank[i] = d;
     size[k]++;
+    here[i] = !region || region(pos[3 * i], pos[3 * i + 1], pos[3 * i + 2]) ? 1 : 0;
     ids.push(i);
   }
-  const N = ids.length;
   const deepest = new Int32Array(M);
   const others = new Int32Array(M);
+  let N = 0;
   let inGroups = 0;
   let outside = 0;
+  let across = 0;
   for (const i of ids) {
     const r = top[i];
-    if (size[r] < p.realmMin) outside++;
+    if (here[i]) {
+      N++;
+      if (size[r] < p.realmMin) outside++;
+      else if (!here[r]) across++;
+      if (size[r] >= p.notableSize) inGroups++;
+    }
     if (size[r] < p.notableSize) continue;
-    inGroups++;
     if (rank[i] > deepest[r]) deepest[r] = rank[i];
     if (tribe[i] !== tribe[r]) others[r]++;
   }
@@ -161,32 +190,50 @@ export function census(s: Society): Census {
   let rankSum = 0;
   let otherSum = 0;
   for (const i of ids) {
-    if (top[i] !== i || size[i] < p.notableSize) continue;
+    if (top[i] !== i || !here[i] || size[i] < p.notableSize) continue;
     sizes.push(size[i]);
     rankSum += deepest[i];
     otherSum += others[i] / size[i];
   }
-  // Crowding as the choice rule meets it: every pair within one perception radius sees each other.
-  const R2 = p.senseRadius * p.senseRadius;
+  // Crowding as the choice rule meets it: each organism counts the others inside its own
+  // perception radius, which is shorter in murky water.
+  const n = ids.length;
+  const R2 = new Float64Array(n);
+  for (let a = 0; a < n; a++) R2[a] = s.senseAt(ids[a]) ** 2;
   let seen = 0;
-  for (let a = 0; a < N; a++) {
+  for (let a = 0; a < n; a++) {
     const i = 3 * ids[a];
     const x = pos[i];
     const y = pos[i + 1];
     const z = pos[i + 2];
-    for (let b = a + 1; b < N; b++) {
+    const ha = here[ids[a]];
+    for (let b = a + 1; b < n; b++) {
       const j = 3 * ids[b];
       const dx = x - pos[j];
       const dy = y - pos[j + 1];
       const dz = z - pos[j + 2];
-      if (dx * dx + dy * dy + dz * dz <= R2) seen += 2;
+      const d2 = dx * dx + dy * dy + dz * dz;
+      if (ha && d2 <= R2[a]) seen++;
+      if (d2 <= R2[b] && here[ids[b]]) seen++;
+    }
+  }
+  let fights = s.stats.fights;
+  if (region) {
+    fights = 0;
+    const F = s.F;
+    for (let c = 0; c < s.fightsAt.length; c++) {
+      if (!s.fightsAt[c]) continue;
+      const cx = (((c % F) + 0.5) / F) * 2 - 1;
+      const cy = (((Math.floor(c / F) % F) + 0.5) / F) * 2 - 1;
+      const cz = ((Math.floor(c / (F * F)) + 0.5) / F) * 2 - 1;
+      if (region(cx, cy, cz)) fights += s.fightsAt[c];
     }
   }
   const g = sizes.length;
   return {
     tick: s.tick,
     pop: N,
-    fights: s.stats.fights,
+    fights,
     inGroups: N ? inGroups / N : NaN,
     outside: N ? outside / N : NaN,
     groups: g,
@@ -194,25 +241,28 @@ export function census(s: Society): Census {
     groupSize: median(sizes),
     otherLineage: g ? otherSum / g : NaN,
     inView: N ? seen / N : NaN,
+    across: region && N ? across / N : NaN,
   };
 }
 
 /**
  * The fingerprint of a stretch of a run: the censuses the caller took over it, averaged, plus the
  * three measures that need events (fights between the first census and the last, and regrouping
- * and group life over the whole run).
+ * and group life over the whole run). Pass the region the censuses were taken in, and the events
+ * are those that happened there: a leader death by where its members were, a group by where it formed.
  */
-export function fingerprint(s: Society, censuses: Census[]): Fingerprint {
+export function fingerprint(s: Society, censuses: Census[], region?: Region): Fingerprint {
   const avg = (pick: (c: Census) => number) => mean(censuses.map(pick).filter((v) => !Number.isNaN(v)));
   const first = censuses[0];
   const last = censuses[censuses.length - 1];
   const pop = avg((c) => c.pop);
   const span = first ? last.tick - first.tick : 0;
-  const deaths = s.successions.filter((x) => x.members >= REGROUP_MIN);
+  const inside = (o: { x: number; y: number; z: number }) => !region || region(o.x, o.y, o.z);
+  const deaths = s.successions.filter((x) => x.members >= REGROUP_MIN && inside(x));
   const regrouped = deaths.filter((x) => x.survived).length;
   const T = s.tick;
   const lives = s.realms
-    .filter((r) => r.peak >= s.p.notableSize && r.founded >= GROUP_LIFE_FROM && r.founded <= T - GROUP_LIFE_TAIL)
+    .filter((r) => r.peak >= s.p.notableSize && r.founded >= GROUP_LIFE_FROM && r.founded <= T - GROUP_LIFE_TAIL && inside(r))
     .map((r) => (r.ended < 0 ? T : r.ended) - r.founded);
   return {
     from: first ? first.tick : T,
@@ -226,6 +276,7 @@ export function fingerprint(s: Society, censuses: Census[]): Fingerprint {
     groupSize: avg((c) => c.groupSize),
     otherLineage: avg((c) => c.otherLineage),
     inView: avg((c) => c.inView),
+    across: avg((c) => c.across),
     fights: span > 0 && pop > 0 ? ((last.fights - first.fights) / span / pop) * 1e6 : NaN,
     leaderDeaths: deaths.length,
     regrouped,

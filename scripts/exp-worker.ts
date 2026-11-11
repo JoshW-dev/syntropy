@@ -2,7 +2,7 @@
 
 import { parentPort } from 'node:worker_threads';
 import { grow, withOverrides, type Overrides } from '../src/sim/world.ts';
-import { census, fingerprint, summarize, type Census, type Fingerprint, type RunSummary } from '../src/sim/score.ts';
+import { census, fingerprint, summarize, waterRegions, type Census, type Fingerprint, type RunSummary } from '../src/sim/score.ts';
 import type { SuccessionRecord } from '../src/sim/society.ts';
 
 export interface ExpJob {
@@ -17,6 +17,25 @@ export interface ExpJob {
 
 /** Ticks between the censuses behind the fingerprint, taken over the second half of the run. */
 const CENSUS_EVERY = 300;
+/** In a world with two waters, where the two organisms of each fight are this many ticks later. */
+const FOLLOW_TICKS = [300, 1000];
+/** A fight counts as near the edge of the murk within this distance of it. */
+const NEAR_EDGE = 0.3;
+
+/**
+ * Where fighters went. Of the organisms that fought in `from` water and won or lost, `n` were
+ * followed for `after` ticks, `alive` were still alive then and `crossed` of those sat in the other
+ * water. `near` keeps only fights within NEAR_EDGE of the murk's edge.
+ */
+export interface Crossing {
+  after: number;
+  from: 'murky' | 'clear';
+  lost: boolean;
+  near: boolean;
+  n: number;
+  alive: number;
+  crossed: number;
+}
 
 export interface ExpSample {
   tick: number;
@@ -36,6 +55,10 @@ export interface ExpResult {
   summary: RunSummary;
   /** The society measured from outside, averaged over the second half of the run. */
   fingerprint: Fingerprint;
+  /** The same for each part of a world with two waters, and empty otherwise. */
+  regions: { name: string; fingerprint: Fingerprint }[];
+  /** In a world with two waters: which water winners and losers of fights sat in later. */
+  crossings: Crossing[];
   levels: number[];
   samples: ExpSample[];
   successions: SuccessionRecord[];
@@ -54,7 +77,44 @@ parentPort!.on('message', (job: ExpJob) => {
   Object.assign(s.ablate, job.ablate ?? {});
   const samples: ExpSample[] = [];
   const censuses: Census[] = [];
+  const regions = waterRegions(s).map((r) => ({ ...r, censuses: [] as Census[] }));
   const half = Math.floor(job.ticks / 2);
+  // Follow both organisms of every fight, so losers can be compared with winners from the same place.
+  const tally = new Map<string, Crossing>();
+  const due: { tick: number; slot: number; uid: number; lost: boolean; near: boolean; murky: boolean }[][] = FOLLOW_TICKS.map(() => []);
+  const count = (after: number, murky: boolean, lost: boolean, near: boolean): Crossing => {
+    const key = `${after}|${murky}|${lost}|${near}`;
+    let c = tally.get(key);
+    if (!c) tally.set(key, (c = { after, from: murky ? 'murky' : 'clear', lost, near, n: 0, alive: 0, crossed: 0 }));
+    return c;
+  };
+  if (regions.length) {
+    s.onFight = (winner, loser) => {
+      for (const [slot, lost] of [[winner, false], [loser, true]] as [number, boolean][]) {
+        const x = s.pos[3 * slot];
+        const y = s.pos[3 * slot + 1];
+        const z = s.pos[3 * slot + 2];
+        const murky = s.murkyAt(x, y, z);
+        const near = s.murkEdge(x, y, z) < NEAR_EDGE;
+        FOLLOW_TICKS.forEach((after, q) => due[q].push({ tick: s.tick + after, slot, uid: s.uid[slot], lost, near, murky }));
+      }
+    };
+  }
+  const settle = () => {
+    FOLLOW_TICKS.forEach((after, q) => {
+      const list = due[q];
+      while (list.length && list[0].tick <= s.tick) {
+        const f = list.shift()!;
+        const alive = !!s.alive[f.slot] && s.uid[f.slot] === f.uid;
+        const crossed = alive && s.murkyAt(s.pos[3 * f.slot], s.pos[3 * f.slot + 1], s.pos[3 * f.slot + 2]) !== f.murky;
+        for (const c of f.near ? [count(after, f.murky, f.lost, false), count(after, f.murky, f.lost, true)] : [count(after, f.murky, f.lost, false)]) {
+          c.n++;
+          if (alive) c.alive++;
+          if (crossed) c.crossed++;
+        }
+      }
+    });
+  };
   let spawned = 0;
   let lastSpawnTick = -1;
   while (world.tick < job.ticks && (s.count > 0 || world.latticeActive)) {
@@ -63,7 +123,11 @@ parentPort!.on('message', (job: ExpJob) => {
       spawned = s.stats.spawned;
       lastSpawnTick = world.tick;
     }
-    if (world.tick === half || (world.tick > half && world.tick % CENSUS_EVERY === 0)) censuses.push(census(s));
+    if (regions.length) settle();
+    if (world.tick === half || (world.tick > half && world.tick % CENSUS_EVERY === 0)) {
+      censuses.push(census(s));
+      for (const r of regions) r.censuses.push(census(s, r.has));
+    }
     if (world.tick % job.every === 0) {
       const h = s.history[s.history.length - 1];
       samples.push({
@@ -96,6 +160,9 @@ parentPort!.on('message', (job: ExpJob) => {
     seed: job.seed,
     summary: summarize(s, job.seed),
     fingerprint: fingerprint(s, censuses),
+    regions: regions.map((r) => ({ name: r.name, fingerprint: fingerprint(s, r.censuses, r.has) })),
+    // A fight too late in the run to follow for the full time is not counted.
+    crossings: [...tally.values()],
     levels: [...s.levels],
     samples,
     successions: s.successions,

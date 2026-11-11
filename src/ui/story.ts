@@ -5,7 +5,7 @@
 
 import * as THREE from 'three';
 import { TICKS_PER_YEAR, type App } from '../app.ts';
-import { HALF_POOR, HALF_RICH, type SimEvent, type SuccessionWatch } from '../sim/society.ts';
+import { CLEAR, CLEAREST, HALF_POOR, HALF_RICH, MURKY, type SimEvent, type SuccessionWatch } from '../sim/society.ts';
 import type { Director } from './director.ts';
 
 interface Caption {
@@ -174,9 +174,10 @@ export class Story {
       if (app.world.tick < 90) {
         const c = app.params.cells;
         const list = (xs: number[]) => (xs.length === 2 ? `${xs[0]} or ${xs[1]}` : `${xs[0]} to ${xs[xs.length - 1]}`);
-        // A viewer who changed the food has seen the opening line, so the map takes its place.
+        // A viewer who changed the water or the food has seen the opening line, so that change
+        // takes its place. A water comes with its own food capacity, so it speaks for both.
         this.say(
-          this.foodCaption() ?? {
+          this.waterCaption() ?? this.foodCaption() ?? {
             kicker: 'One rule is running', high: true, seconds: 9,
             body: `Each cell counts its 26 neighbours. A dead cell with ${list(c.birth)} live neighbours is born, and a live cell with ${list(c.survive)} survives. Nothing in this rule mentions an organism.`,
           },
@@ -203,6 +204,26 @@ export class Story {
       if (next.fresh && !next.fresh()) continue;
       if (age < STALE || (!this.queue.length && age < 2.5 * STALE)) this.show(next);
     }
+  }
+
+  /** What this world's water changes, or null for the water the paper measured. */
+  private waterCaption(): Caption | null {
+    const water = this.app.world.params.society.waterMap;
+    if (water === 'even') return null;
+    const times = (v: number) => `${+v.toFixed(2)} times as far as usual`;
+    const ratio = `${+(MURKY / CLEAR).toFixed(2)} times as far as one`;
+    const two = 'The panel measures the two waters side by side.';
+    const [kicker, first, last] = {
+      clear: ['Clear water', `The water in this world is clear, so every organism sees ${times(CLEAREST)}.`, 'Watch how deep the groups grow.'],
+      murky: ['Murky water', `The water in this world is murky, so every organism sees ${times(MURKY)}.`, 'Watch how few organisms end up in groups.'],
+      halves: ['Murky water beside clear', `Half of this world is murky and half is clear. An organism in the murk sees ${ratio} in the clear.`, two],
+      pockets: ['Pockets of murk', `Three balls of murky water sit in this clear world. An organism inside one sees ${ratio} outside.`, two],
+    }[water];
+    return {
+      kicker, high: true, seconds: 12,
+      body: `${first} Sight changes one thing: how many others an organism can weigh when it chooses whom to follow. No rule names the murk, a border or a refuge. ${last}`,
+      action: { label: 'See the measurements', run: () => this.onMeasure() },
+    };
   }
 
   /** What this world's food map changes, or null for the map and amount the paper measured. */

@@ -43,9 +43,30 @@ const ISLAND_BASE = 0.01;
 export const HALF_POOR = 0.4;
 export const HALF_RICH = 1.6;
 
+/**
+ * How clear the water is, by place. An organism's perception radius is senseRadius times the
+ * clarity of the water it sits in (see senseAt), and nothing else about the water enters a rule:
+ *   even    : clarity 1 everywhere. The model the paper measured.
+ *   clear   : clarity 1.5 everywhere, a radius of 0.24 at the default senseRadius.
+ *   murky   : clarity 0.6875 everywhere, a radius of 0.11.
+ *   halves  : murky where x < 0, and clarity 1.25 (a radius of 0.20) where x >= 0.
+ *   pockets : murky inside a ball around every second food centre, clarity 1.25 elsewhere.
+ */
+export type WaterMap = 'even' | 'clear' | 'murky' | 'halves' | 'pockets';
+export const WATER_MAPS: readonly WaterMap[] = ['even', 'clear', 'murky', 'halves', 'pockets'];
+
+/** Clarity of murky water, of the clear water beside it, and of the all-clear world. */
+export const MURKY = 0.6875;
+export const CLEAR = 1.25;
+export const CLEAREST = 1.5;
+/** Radius of a murky pocket, in world units. */
+const POCKET_RADIUS = 0.5;
+
 export interface SocietyParams {
   maxN: number;
   // world and food
+  /** Where the water is clear and where it is murky. Read once, when the world is built. */
+  waterMap: WaterMap;
   /** The shape of the food field. Read once, when the world is built. */
   foodMap: FoodMap;
   /** Food the field can hold, as a multiple of what the map holds at 1. Read once, like foodMap. */
@@ -153,6 +174,7 @@ export interface SocietyParams {
 // as wide a volume as before (late population about 450 on 24 seeds, as with the drop).
 export const DEFAULT_SOCIETY: SocietyParams = {
   maxN: 1400,
+  waterMap: 'even',
   foodMap: 'zones',
   foodCapacity: 1,
   foodRes: 16,
@@ -245,6 +267,10 @@ export interface Realm {
   tribes: number;
   sovereign: number;
   notable: boolean;
+  /** Where its first leader sat when it formed. */
+  x: number;
+  y: number;
+  z: number;
 }
 
 export interface SocietyStats {
@@ -291,6 +317,10 @@ export interface SuccessionRecord {
   /** Mean distance of members from the realm's centre at death, in perception radii. */
   spread: number;
   survived: boolean;
+  /** The centre of the members at death, so a measurement can tell where it happened. */
+  x: number;
+  y: number;
+  z: number;
 }
 
 /**
@@ -346,6 +376,9 @@ interface PendingSuccession {
   uids: number[];
   heirShare: number;
   spread: number;
+  x: number;
+  y: number;
+  z: number;
 }
 
 export class Society {
@@ -395,6 +428,19 @@ export class Society {
   /** The most food one cell can hold on this map. No rule reads it; a viewer scales the stipple by it. */
   foodCeil = 1;
   zones: { x: number; y: number; z: number }[] = [];
+  /** Clarity of the water outside the murk and inside it (see WaterMap). */
+  waterClear = 1;
+  waterMurky = 1;
+  /** Where the murk is: everywhere, the half where x < 0, or inside these balls. */
+  murkAll = false;
+  murkHalf = false;
+  murk: { x: number; y: number; z: number; r: number }[] = [];
+  /** True when the world holds two kinds of water, so its two parts can be measured apart. */
+  twoWaters = false;
+  /** Fights so far in each food cell. No rule reads it; it lets a measurement say where fights happen. */
+  fightsAt: Uint32Array;
+  /** Called after each fight with the winner's and the loser's slot. For measurements only. */
+  onFight: ((winner: number, loser: number) => void) | null = null;
 
   events: SimEvent[] = [];
   emitted = 0;
@@ -513,7 +559,14 @@ export class Society {
     for (let i = 0; i < M; i++) this.freeStack[i] = M - 1 - i;
     this.freeTop = M;
 
-    this.cellSize = params.senseRadius;
+    // Clarity by water map. The neighbour grid is sized for the longest sight in the world.
+    const w = params.waterMap;
+    this.waterClear = w === 'clear' ? CLEAREST : w === 'halves' || w === 'pockets' ? CLEAR : 1;
+    this.waterMurky = w === 'murky' || w === 'halves' || w === 'pockets' ? MURKY : this.waterClear;
+    this.murkAll = w === 'murky';
+    this.murkHalf = w === 'halves';
+    this.twoWaters = w === 'halves' || w === 'pockets';
+    this.cellSize = params.senseRadius * (this.murkAll ? this.waterMurky : this.waterClear);
     this.gN = Math.max(1, Math.ceil(2 / this.cellSize));
     const nCells = this.gN ** 3;
     this.cellStart = new Int32Array(nCells + 1);
@@ -524,7 +577,10 @@ export class Society {
     this.F = params.foodRes;
     this.food = new Float32Array(this.F ** 3);
     this.cap = new Float32Array(this.F ** 3);
+    this.fightsAt = new Uint32Array(this.F ** 3);
     this.placeFood(homelands);
+    // Murky pockets sit on every second food centre, so murk and clear water both hold fertile ground.
+    if (w === 'pockets') this.murk = this.zones.filter((_, k) => k % 2 === 0).map((c) => ({ ...c, r: POCKET_RADIUS }));
     this.levels[0] = 0;
   }
 
@@ -895,6 +951,32 @@ export class Society {
     this.tribNext.fill(0);
   }
 
+  /** True where the water is murky. */
+  murkyAt(x: number, y: number, z: number): boolean {
+    if (this.murkAll) return true;
+    if (this.murkHalf) return x < 0;
+    for (const m of this.murk) if ((x - m.x) ** 2 + (y - m.y) ** 2 + (z - m.z) ** 2 < m.r * m.r) return true;
+    return false;
+  }
+
+  /** Distance from a point to the nearest edge of the murk, or Infinity when the water is one kind. */
+  murkEdge(x: number, y: number, z: number): number {
+    if (this.murkHalf) return Math.abs(x);
+    let best = Infinity;
+    for (const m of this.murk) best = Math.min(best, Math.abs(Math.hypot(x - m.x, y - m.y, z - m.z) - m.r));
+    return best;
+  }
+
+  /** How far an organism at a point can see: the base radius times the clarity of the water there. */
+  senseAtPoint(x: number, y: number, z: number): number {
+    return this.p.senseRadius * (this.murkyAt(x, y, z) ? this.waterMurky : this.waterClear);
+  }
+
+  /** The perception radius of organism i. Every rule that asks how far it sees calls this. */
+  senseAt(i: number): number {
+    return this.senseAtPoint(this.pos[3 * i], this.pos[3 * i + 1], this.pos[3 * i + 2]);
+  }
+
   private vmax(i: number): number {
     return this.p.maxSpeed * Math.pow(8 / Math.max(1, this.mass[i]), 0.25);
   }
@@ -988,7 +1070,6 @@ export class Society {
   private moveAndMeet(): void {
     const { M, alive, p, pos, vel, acc, wander, root, subMass, tribe, lord, energy, mass, rng } = this;
     const { gN, cellStart, cellItems, cellOf } = this;
-    const sense2 = p.senseRadius * p.senseRadius;
     const sepR = p.sepRadius;
     const ff = new Float32Array(4);
     const sqrtSub = this.sqrtSub;
@@ -1004,6 +1085,8 @@ export class Society {
       const ti = tribe[i];
       const Pi = subMass[ri];
       const Li = lord[i];
+      const Ri = this.senseAt(i);
+      const sense2 = Ri * Ri;
       const hunger = clamp(1 - energy[i] / (mass[i] * p.growAt), 0, 1);
       let sx = 0, sy = 0, sz = 0;
       let kx = 0, ky = 0, kz = 0, kn = 0;
@@ -1052,7 +1135,7 @@ export class Society {
               const rj = root[j];
               if (rj === ri) continue;
               const Pj = subMass[rj];
-              const fall = (1 - d / p.senseRadius) / d;
+              const fall = (1 - d / Ri) / d;
               if (Pj > 1.5 * Pi) {
                 fx -= dx * fall;
                 fy -= dy * fall;
@@ -1209,6 +1292,7 @@ export class Society {
       const l = iWins ? j : i;
       this.cooldown[i] = this.cooldown[j] = p.fightCooldown;
       this.stats.fights++;
+      this.fightsAt[this.foodIndex(mx, my, mz)]++;
       // The winner eats part of the loser's body.
       const taken = Math.min(p.bite, mass[l]);
       this.shrink(l, taken);
@@ -1220,6 +1304,7 @@ export class Society {
         this.lostTo[l] = this.rootOf(w);
         this.queueChoice(l);
       }
+      if (this.onFight) this.onFight(w, l);
     }
   }
 
@@ -1250,7 +1335,7 @@ export class Society {
    */
   private weigh(i: number): Option[] {
     const { p, pos, mass, tribe, lord, nChild, gN, cellStart, cellItems, cellOf } = this;
-    const R = p.senseRadius;
+    const R = this.senseAt(i);
     const R2 = R * R;
     // Mark i's own subtree: those come along whatever i chooses.
     const s = ++this.stampNow;
@@ -1491,7 +1576,10 @@ export class Society {
       slots: members,
       uids,
       heirShare: biggest / n,
-      spread: spread / n / this.p.senseRadius,
+      spread: spread / n / this.senseAtPoint(cx, cy, cz),
+      x: cx,
+      y: cy,
+      z: cz,
     });
     for (const u of uids) this.pendingUid.add(u);
     this.realms[realmId].sovereign = NONE;
@@ -1521,7 +1609,7 @@ export class Society {
       const realm = this.realms[ps.realm];
       // Regrouping under a ruler that already heads another realm is absorption, not succession.
       const survived = bestRoot >= 0 && keep >= this.p.govKeep && this.realmOf[bestRoot] < 0;
-      this.successions.push({ tick: this.tick, realm: ps.realm, members, keep, heirShare: ps.heirShare, spread: ps.spread, survived });
+      this.successions.push({ tick: this.tick, realm: ps.realm, members, keep, heirShare: ps.heirShare, spread: ps.spread, survived, x: ps.x, y: ps.y, z: ps.z });
       if (survived) {
         this.realmOf[bestRoot] = ps.realm;
         realm.sovereign = bestRoot;
@@ -1657,6 +1745,7 @@ export class Society {
         this.realms.push({
           id: rid, name: groupName(tribe[r], this.nameCounts), tribe: tribe[r], founded: this.tick, ended: -1,
           rulers: 1, peak: size, size, depth: subDepth[r], tribes: 1, sovereign: r, notable: false,
+          x: this.pos[3 * r], y: this.pos[3 * r + 1], z: this.pos[3 * r + 2],
         });
         realmOf[r] = rid;
       }
@@ -1789,7 +1878,7 @@ export class Society {
     cz /= n;
     let spread = 0;
     for (const k of members) spread += Math.hypot(this.pos[3 * k] - cx, this.pos[3 * k + 1] - cy, this.pos[3 * k + 2] - cz);
-    return spread / n / this.p.senseRadius;
+    return spread / n / this.senseAtPoint(cx, cy, cz);
   }
 
   /** Succession tests in progress, with how far each realm has regrouped so far. */

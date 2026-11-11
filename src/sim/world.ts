@@ -5,7 +5,7 @@
 // ends and they dissolve. The organisms never read the lattice, so ending it changes nothing they do.
 
 import { CellsWorld, DEFAULT_CELLS, type CellsParams } from './cells.ts';
-import { Society, DEFAULT_SOCIETY, FOOD_MAPS, type FoodMap, type SocietyParams } from './society.ts';
+import { Society, DEFAULT_SOCIETY, FOOD_MAPS, WATER_MAPS, type FoodMap, type SocietyParams, type WaterMap } from './society.ts';
 import { makeRng, type Rng } from './rng.ts';
 
 export const LADDER = ['Cells', 'Organisms', 'Tribes', 'Hierarchy', 'Government'] as const;
@@ -43,11 +43,27 @@ export const FOOD_PRESETS: readonly { map: FoodMap; capacity: number }[] = [
   { map: 'halves', capacity: 1 },
 ];
 
+/**
+ * The waters a viewer can pick. Murk packs organisms closer and clear water spreads them out, so
+ * each water comes with a food capacity that keeps a typical world of the zones map at 400 to 900
+ * organisms (16 worlds each, 120 years). At capacity 1 the clear world holds about 155 organisms,
+ * the murky world fills maxN, and 6 of 16 half-and-half worlds pass 900. With another food map the
+ * two capacities multiply, and those pairs are not measured.
+ */
+export const WATER_PRESETS: readonly { map: WaterMap; capacity: number }[] = [
+  { map: 'even', capacity: 1 },
+  { map: 'clear', capacity: 1.4 },
+  { map: 'murky', capacity: 0.75 },
+  { map: 'halves', capacity: 0.95 },
+  { map: 'pockets', capacity: 1 },
+];
+
 /** Overlay partial overrides (from a tuning file, the environment panel or a URL) on the defaults. */
 export function withOverrides(o: Overrides = {}): WorldParams {
   const society = { ...DEFAULT_SOCIETY, ...(o.society ?? {}) };
   // A link can carry anything: an unknown map or a capacity that is not a positive number falls back.
   if (!FOOD_MAPS.includes(society.foodMap)) society.foodMap = DEFAULT_SOCIETY.foodMap;
+  if (!WATER_MAPS.includes(society.waterMap)) society.waterMap = DEFAULT_SOCIETY.waterMap;
   if (!(Number.isFinite(society.foodCapacity) && society.foodCapacity > 0)) society.foodCapacity = DEFAULT_SOCIETY.foodCapacity;
   return {
     cells: { ...DEFAULT_CELLS, ...(o.cells ?? {}) },

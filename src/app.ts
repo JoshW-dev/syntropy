@@ -6,6 +6,7 @@ import * as THREE from 'three';
 import { Stage } from './render/stage.ts';
 import { Voxels } from './render/voxels.ts';
 import { Bodies } from './render/bodies.ts';
+import { Haze } from './render/haze.ts';
 import { PAPER, type Theme } from './render/theme.ts';
 import { World, withOverrides, LADDER, type WorldParams, type Overrides } from './sim/world.ts';
 import { randomSeed } from './sim/rng.ts';
@@ -60,6 +61,7 @@ export class App {
   world!: World;
   private voxels: Voxels | null = null;
   bodies: Bodies | null = null;
+  private haze: Haze | null = null;
   speed: number;
   paused = false;
   /** Ticks per second multiplier that replaces the speed setting while set (slow motion). */
@@ -160,12 +162,19 @@ export class App {
     if (location.hash.slice(1) !== seed) history.replaceState(null, '', `${location.pathname}${location.search}#${seed}`);
     this.voxels?.dispose();
     this.bodies?.dispose();
+    if (this.haze) {
+      this.stage.scene.remove(this.haze.group);
+      this.haze.dispose();
+    }
     this.world = new World(seed, this.params);
     this.voxels = new Voxels(this.world.cells, this.theme);
     this.stage.scene.add(this.voxels.layer.mesh);
     this.bodies = new Bodies(this.world.society, this.stage.fog, this.theme);
     Object.assign(this.bodies.show, this.show);
     this.stage.scene.add(this.bodies.group);
+    // Murky water shows as a haze; a world with the same water everywhere has none.
+    this.haze = new Haze(this.world.society, this.theme);
+    this.stage.scene.add(this.haze.group);
     this.acc = 0;
     this.seenEvents = 0;
     this.realmsSeen = 0;
@@ -308,6 +317,7 @@ export class App {
     this.stage.setTheme(theme);
     this.voxels?.setTheme(theme);
     this.bodies?.setTheme(theme);
+    this.haze?.setTheme(theme);
     this.hud.setTheme(theme);
   }
 

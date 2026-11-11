@@ -248,7 +248,7 @@ export class Card {
     const y = (-p.y * 0.5 + 0.5) * h;
     const perUnit = h / (2 * Math.tan((cam.fov * Math.PI) / 360)) / Math.max(0.1, depth);
     set(this.me, { cx: x, cy: y, r: Math.max(9, s.radius[this.slot] * perUnit * 1.5) });
-    set(this.sight, { cx: x, cy: y, r: s.p.senseRadius * perUnit });
+    set(this.sight, { cx: x, cy: y, r: s.senseAt(this.slot) * perUnit });
     let n = 0;
     for (let q = 0; q < this.options.length; q++) {
       const o = this.options[q];

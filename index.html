@@ -107,17 +107,23 @@
           <svg viewBox="0 0 20 20" width="20" height="20" aria-hidden="true"><path d="M5.5 5.5l9 9M14.5 5.5l-9 9" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" /></svg>
         </button>
       </div>
-      <p class="env-note">Sliders apply now, the food map on restart. Share links keep both.</p>
-      <section class="food" aria-labelledby="food-h">
-        <p class="pop-h" id="food-h">Food map<span id="food-when">applies on restart</span></p>
-        <div class="food-maps" id="food-maps" role="radiogroup" aria-labelledby="food-h"></div>
-        <p class="food-hint" id="food-hint"></p>
-        <div id="food-knob"></div>
-      </section>
+      <p class="env-note">Sliders apply now, food and water on restart. Share links keep them all.</p>
       <!-- The fingerprint: this world's society measured from outside. Nothing reads it back. -->
       <section class="fp" id="fp" aria-labelledby="fp-h">
         <p class="pop-h" id="fp-h" title="Measurements of the running world. No rule reads them.">This world, measured<span id="fp-when"></span></p>
         <dl class="fp-list" id="fp-list"></dl>
+        <table class="fp-table" id="fp-table"></table>
+      </section>
+      <section class="food" aria-labelledby="food-h">
+        <p class="pop-h" id="food-h">Food map<span id="food-when">applies on restart</span></p>
+        <div class="food-maps" id="food-maps" role="radiogroup" aria-labelledby="food-h"></div>
+        <p class="food-hint" id="food-hint"></p>
+      </section>
+      <section class="food" aria-labelledby="water-h">
+        <p class="pop-h" id="water-h" title="An organism sees less far in murky water. Nothing else about the water enters a rule.">Water<span id="water-when">applies on restart</span></p>
+        <div class="food-maps" id="water-maps" role="radiogroup" aria-labelledby="water-h"></div>
+        <p class="food-hint" id="water-hint"></p>
+        <div id="food-knob"></div>
       </section>
       <p class="pop-h env-rules">Rules<span>apply now</span></p>
       <div id="env-knobs"></div>

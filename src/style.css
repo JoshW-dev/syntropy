@@ -756,11 +756,7 @@ a:focus-visible {
   background: var(--figure);
 }
 
-/* The fingerprint: six measurements of the running world, each a number over what it counts. The
-   block keeps clear of the Paper tab, which hangs on the panel's right edge when the paper is folded. */
-.fp {
-  padding-right: 10px;
-}
+/* The fingerprint: six measurements of the running world, each a number over what it counts. */
 
 .fp-list {
   display: grid;
@@ -782,8 +778,49 @@ a:focus-visible {
   color: var(--muted);
 }
 
-.fp.empty .fp-list {
+.fp.empty .fp-list,
+.fp.empty .fp-table,
+.fp.two .fp-list,
+.fp:not(.two) .fp-table {
   display: none;
+}
+
+/* Two waters in one world: a column for each, so one measure reads across both. */
+.fp-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+  line-height: 1.3;
+  font-variant-numeric: tabular-nums;
+}
+
+.fp-table th {
+  padding: 4px 8px 4px 0;
+  font-weight: 400;
+  text-align: left;
+  color: var(--muted);
+}
+
+.fp-table tr:first-child th {
+  padding-bottom: 2px;
+  color: var(--text);
+}
+
+.fp-table tr:first-child th + th,
+.fp-table td {
+  width: 76px;
+  padding: 4px 0 4px 8px;
+  text-align: right;
+  white-space: nowrap;
+}
+
+.fp-table td {
+  font-size: 15px;
+  color: var(--figure);
+}
+
+.fp-table tr + tr {
+  border-top: 1px solid color-mix(in srgb, var(--trough) 60%, transparent);
 }
 
 .fp.empty::after {
@@ -961,6 +998,18 @@ a:focus-visible {
 
 .text-btn:disabled:hover {
   background: transparent;
+}
+
+/* With the paper folded, its tab hangs on the panel's right edge, so the panel keeps clear of it. */
+@container stage (min-width: 761px) {
+  :root[data-layout='sim'] .env {
+    padding-right: 38px;
+  }
+
+  :root[data-layout='sim'] .env-actions {
+    margin-right: -38px;
+    padding-right: 38px;
+  }
 }
 
 /* ---------- hiding the UI ---------- */

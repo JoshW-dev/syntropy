@@ -44,6 +44,7 @@ Everything here reads the simulation and changes nothing in it, except the one b
 - **Remove a leader.** A leader's card has a button that removes it. Time slows, its former members light up, and a meter shows how much of the group has regrouped under one new leader against the 60% line. The strike goes into the link as `?k=`, so a shared link replays the same history.
 - **History.** The History button draws the world as it happens. Each group that grew to 15 or more is a band as tall as its members, with a mark for every leader's death. A click pins a year and replays the world from its seed up to that year, and the chart saves as an image.
 - **Food maps and a fingerprint.** The Environment panel has four food maps: the six fertile zones (the default, and the world the paper measured), an even plain, six tight islands, and a rich half beside a poor half. A dial sets how much food the world holds, the map applies when the world restarts, and the link carries both. Below the picker the panel measures the running society from outside: the share of organisms in groups of 15 or more, the share outside any group of 5, how many others each organism can see, the ranks below a leader, fights per 1,000 organisms, and how often a group of 20 or more outlives its leader. No rule reads the map's name or any of those numbers.
+- **Clear and murky water.** The Environment panel also picks the water: the usual water, clear, murky, a murky half beside a clear half, or pockets of murk. An organism's perception radius is the base radius times the clarity of the water it sits in, and nothing else about the water enters a rule. Murky water is drawn as a faint haze, the lens on a picked organism shows how far it sees there, and a world with two waters is measured once per water, side by side.
 - **The paper beside the world.** In the side pane the paper has buttons that run its claims in the world on the left: set fear to 0, start again with no fights, remove the largest group's leader. Two of its figures draw the running world over the 48-world result.
 
 ## The paper
@@ -78,6 +79,12 @@ npm run fingerprint -- --maps zones,plain,islands,halves --seeds 16 --ticks 1200
 ```
 
 That runs 16 worlds under each food map and prints the fingerprint of each one, averaged over the second half of the run. It adds median group size, the share of members from another lineage than their leader's, and median group life to the numbers the panel shows. A condition can also be `map:capacity`, such as `islands:0.75`.
+
+```bash
+npm run fingerprint -- --waters even,clear,murky,halves,pockets --seeds 16 --ticks 12000
+```
+
+That does the same for each water. A world with two waters gets one more row per water, and a table of where the winners and losers of its fights sat 300 and 1,000 ticks later.
 
 ```bash
 npm run experiments
