@@ -123,7 +123,7 @@ body {
   position: fixed;
   top: 112px;
   left: var(--gutter);
-  bottom: 204px;
+  bottom: 214px;
   width: 300px;
   display: flex;
   flex-direction: column;
@@ -248,7 +248,7 @@ body {
 .chronicle {
   position: fixed;
   left: var(--gutter);
-  bottom: 52px;
+  bottom: 62px;
   width: min(440px, calc(100vw - 2 * var(--gutter)));
   pointer-events: none;
 }
@@ -376,7 +376,7 @@ a:focus-visible {
 .readout {
   position: fixed;
   right: var(--gutter);
-  bottom: 52px;
+  bottom: 62px;
   margin: 0;
   display: grid;
   grid-template-columns: auto auto;
@@ -1026,7 +1026,7 @@ a:focus-visible {
     visibility 0.25s;
 }
 
-.ui-hidden :is(.mast, .left, .chronicle, .controls, .readout, .labels, .tip, .foot, .env, .side, .lens, .history) {
+.ui-hidden :is(.fold, .mast, .left, .chronicle, .controls, .readout, .labels, .tip, .foot, .env, .side, .lens, .history) {
   opacity: 0;
   visibility: hidden;
 }
@@ -1343,7 +1343,7 @@ a:focus-visible {
   position: fixed;
   top: 84px;
   right: var(--gutter);
-  bottom: 196px;
+  bottom: 206px;
   z-index: 8;
   width: 300px;
   display: flex;
@@ -1961,6 +1961,141 @@ a:focus-visible {
 
   #hist-save {
     display: none;
+  }
+}
+
+/* ---------- fold buttons ---------- */
+
+/* A small button under each piece folds it away. It shows while the pointer is over its piece (the
+   script adds .near, because the pieces let the pointer through to the world), and it stays in view
+   with the piece's name once the piece is folded, so there is always a way back. */
+.fold {
+  flex: none;
+  align-self: flex-start;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  height: 22px;
+  margin: 0 0 6px -6px;
+  padding: 0 8px 0 6px;
+  border: 0;
+  border-radius: 6px;
+  background: linear-gradient(var(--press), var(--press)) var(--ground);
+  color: var(--control);
+  font: 500 12px/1 var(--sans);
+  text-shadow: none;
+  cursor: pointer;
+  pointer-events: auto;
+  opacity: 0;
+  transition:
+    opacity 0.18s ease,
+    color 0.15s;
+}
+
+.fold.near,
+.fold:hover,
+.fold:focus-visible,
+.fold[aria-expanded='false'] {
+  opacity: 1;
+}
+
+.fold:hover,
+.fold:focus-visible {
+  background: linear-gradient(var(--press-hover), var(--press-hover)) var(--ground);
+  color: var(--ink);
+}
+
+.fold svg {
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.7;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  transition: transform 0.2s ease;
+}
+
+/* the arrow points the way the piece will go: away when open, back when folded */
+.fold[aria-expanded='false'] svg,
+.fold-low svg {
+  transform: rotate(180deg);
+}
+
+.fold-low[aria-expanded='false'] svg {
+  transform: none;
+}
+
+.fold span {
+  display: none;
+}
+
+/* folded: the button is the piece's name, quiet until pointed at */
+.fold[aria-expanded='false'] {
+  background: transparent;
+  color: var(--muted);
+  text-shadow:
+    0 0 2px var(--ground),
+    0 0 4px var(--ground);
+}
+
+.fold[aria-expanded='false']:hover,
+.fold[aria-expanded='false']:focus-visible {
+  background: linear-gradient(var(--press-hover), var(--press-hover)) var(--ground);
+  color: var(--ink);
+  text-shadow: none;
+}
+
+.fold[aria-expanded='false'] span {
+  display: inline;
+}
+
+.realms[hidden] + .fold {
+  display: none;
+}
+
+/* the chronicle and the numbers sit on the bottom edge, so their buttons are pinned under them */
+.fold-low {
+  position: fixed;
+  bottom: 38px;
+  margin: 0;
+  transition:
+    opacity 0.18s ease,
+    color 0.15s,
+    visibility 0.25s;
+}
+
+.fold-chronicle {
+  left: calc(var(--gutter) - 6px);
+}
+
+.fold-readout {
+  right: calc(var(--gutter) - 6px);
+}
+
+.hist-open .fold-low,
+.card-open .fold-readout {
+  visibility: hidden;
+}
+
+/* On a wide stage a folded piece is gone. A narrow stage already shows very little, so the fold
+   buttons and their effect are left out there. */
+@container stage (min-width: 761px) {
+  .no-ladder .ladder,
+  .no-groups .realms,
+  .no-readout .readout {
+    display: none;
+  }
+}
+
+@container stage (max-width: 760px) {
+  .fold {
+    display: none;
+  }
+}
+
+/* Without a pointer that can hover, the buttons stay in view. */
+@media (hover: none) {
+  .fold {
+    opacity: 0.85;
   }
 }
 

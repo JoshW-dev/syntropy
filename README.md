@@ -38,6 +38,7 @@ Levels can only be reached in order.
 
 Everything here reads the simulation and changes nothing in it, except the one button that removes a leader.
 
+- **Fold buttons.** The levels, the groups, the chronicle and the numbers each have a small button under them that folds the piece away. A button shows while the pointer is over its piece, and a folded piece leaves its name as the way back.
 - **Captions and a guided camera.** A narrator says what just happened and why no rule asked for it, and the camera moves in on it. The Look menu switches off the captions, the guided camera and the slow rotation (`R`).
 - **Groups.** The list under the ladder shows each group with its members, its ranks and the lineages inside it. Pointing at a row lights that group and pales the rest, and a click follows its leader.
 - **One organism's choice.** Clicking an organism opens a card with every option it can see and the score of each: its odds of winning nearby, times the share it keeps after tax, times the control left through the ranks above it. A lens on the world draws how far it sees and a line to each leader it could follow. The card also lists the chain of command above it and its direct followers, and each of those can be picked.

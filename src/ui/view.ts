@@ -1,5 +1,6 @@
-// View options, all behind the Look button: the theme, which layers show (chronicle, command lines,
-// ruler rings, food) and hiding the UI entirely. The theme is remembered in this browser and kept in
+// View options, all behind the Look button: the theme, which pieces and layers show (levels, groups,
+// chronicle, numbers, command lines, leader rings, food) and hiding the UI entirely. The four pieces
+// also fold from the small button under each one (see folds.ts). The theme is remembered in this browser and kept in
 // ?look= so a shared link opens in the same look. Layer choices are remembered in this browser only.
 
 import type { App } from '../app.ts';
@@ -9,8 +10,11 @@ import { load, readQuery, save, writeQuery } from './query.ts';
 const LOOK_KEY = 'syntropy.look';
 const SHOW_KEY = 'syntropy.show';
 
-type Layer = 'chronicle' | 'lines' | 'rings' | 'food' | 'captions' | 'camera' | 'spin';
-const LAYERS: Layer[] = ['chronicle', 'lines', 'rings', 'food', 'captions', 'camera', 'spin'];
+export type Layer = 'ladder' | 'groups' | 'chronicle' | 'readout' | 'lines' | 'rings' | 'food' | 'captions' | 'camera' | 'spin';
+const LAYERS: Layer[] = ['ladder', 'groups', 'chronicle', 'readout', 'lines', 'rings', 'food', 'captions', 'camera', 'spin'];
+/** Pieces of the interface that fold away one by one. Each sets a class on the page when hidden. */
+const PIECES: Layer[] = ['ladder', 'groups', 'chronicle', 'readout'];
+const PIECE_NAMES: Partial<Record<Layer, string>> = { ladder: 'levels', groups: 'groups', chronicle: 'chronicle', readout: 'numbers' };
 
 /** The Guide switches act outside the renderer: the narrator, the guided camera and the slow turn. */
 export interface Guide {
@@ -160,15 +164,23 @@ export class View {
   }
 
   private applyLayer(layer: Layer, on: boolean): void {
-    if (layer === 'chronicle') document.documentElement.classList.toggle('no-chronicle', !on);
-    else if (layer === 'captions' || layer === 'camera' || layer === 'spin') this.guide[layer](on);
-    else this.app.setShow(layer, on);
+    if (PIECES.includes(layer)) {
+      document.documentElement.classList.toggle(`no-${layer}`, !on);
+      // The fold button under the piece says which way it goes next.
+      const fold = document.querySelector<HTMLButtonElement>(`.fold[data-fold="${layer}"]`);
+      if (fold) {
+        fold.setAttribute('aria-expanded', String(on));
+        fold.title = `${on ? 'Hide' : 'Show'} the ${PIECE_NAMES[layer]}`;
+        fold.setAttribute('aria-label', fold.title);
+      }
+    } else if (layer === 'captions' || layer === 'camera' || layer === 'spin') this.guide[layer](on);
+    else if (layer === 'lines' || layer === 'rings' || layer === 'food') this.app.setShow(layer, on);
   }
 
   private loadShown(): Record<Layer, boolean> {
     // With reduced motion asked for, the camera stays still unless the viewer turns it on.
     const move = !this.stillByDefault;
-    const shown = { chronicle: true, lines: true, rings: true, food: true, captions: true, camera: move, spin: move };
+    const shown = { ladder: true, groups: true, chronicle: true, readout: true, lines: true, rings: true, food: true, captions: true, camera: move, spin: move };
     try {
       const saved = JSON.parse(load(SHOW_KEY) ?? '{}');
       for (const k of LAYERS) if (typeof saved[k] === 'boolean') shown[k] = saved[k];

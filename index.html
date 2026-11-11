@@ -36,14 +36,18 @@
     <!-- The left column is the state of the world: the level it has reached, then who leads whom. -->
     <div class="left">
       <ol class="ladder" id="ladder" aria-label="Levels of emergence"></ol>
+      <!-- Each piece has a small fold button under it. It shows when the pointer is over the piece. -->
+      <button class="fold" data-fold="ladder" data-piece="ladder" aria-expanded="true" aria-controls="ladder"><svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true"><path d="M4 10l4-4 4 4" /></svg><span>Levels</span></button>
       <section class="realms" id="realms" hidden aria-label="Groups">
         <p class="pop-h" title="A ring marks a leader. A line joins each follower to its leader. The bar shows the lineages inside each group.">Groups<span>lineages, members, ranks</span></p>
         <div id="realms-list"></div>
         <p class="realms-rest" id="realms-rest" hidden></p>
       </section>
+      <button class="fold" data-fold="groups" data-piece="realms" aria-expanded="true" aria-controls="realms"><svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true"><path d="M4 10l4-4 4 4" /></svg><span>Groups</span></button>
     </div>
 
     <section class="chronicle" id="chronicle" aria-live="polite" aria-label="Chronicle"></section>
+    <button class="fold fold-low fold-chronicle" data-fold="chronicle" data-piece="chronicle" aria-expanded="true" aria-controls="chronicle"><svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true"><path d="M4 10l4-4 4 4" /></svg><span>Chronicle</span></button>
 
     <nav class="controls" aria-label="Simulation controls">
       <button id="pause" class="btn icon" aria-label="Pause" title="Pause (space)">
@@ -75,7 +79,10 @@
           <div class="pop-group" role="group" aria-labelledby="show-h">
             <p class="pop-h" id="show-h">Show</p>
             <div class="pop-list">
+              <label class="check"><input type="checkbox" data-show="ladder" checked /><span class="box" aria-hidden="true"></span>Levels</label>
+              <label class="check"><input type="checkbox" data-show="groups" checked /><span class="box" aria-hidden="true"></span>Groups</label>
               <label class="check"><input type="checkbox" data-show="chronicle" checked /><span class="box" aria-hidden="true"></span>Chronicle</label>
+              <label class="check"><input type="checkbox" data-show="readout" checked /><span class="box" aria-hidden="true"></span>Numbers</label>
               <label class="check"><input type="checkbox" data-show="lines" checked /><span class="box" aria-hidden="true"></span>Command lines</label>
               <label class="check"><input type="checkbox" data-show="rings" checked /><span class="box" aria-hidden="true"></span>Leader rings</label>
               <label class="check"><input type="checkbox" data-show="food" checked /><span class="box" aria-hidden="true"></span>Food</label>
@@ -185,6 +192,7 @@
     <button id="show-ui" class="show-ui" title="Show UI (H)" hidden>Show UI</button>
 
     <dl class="readout" id="readout"></dl>
+    <button class="fold fold-low fold-readout" data-fold="readout" data-piece="readout" aria-expanded="true" aria-controls="readout"><svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true"><path d="M4 10l4-4 4 4" /></svg><span>Numbers</span></button>
 
     <div class="labels" id="labels" aria-hidden="true"></div>
     <div class="tip" id="tip" hidden></div>

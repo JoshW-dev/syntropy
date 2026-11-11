@@ -12,6 +12,8 @@ const ROWS = 8;
 const HEAD = 24;
 const ROW = 27;
 const REST = 24;
+/** Room the two fold buttons take in the left column. */
+const FOLDS = 56; // two buttons of 22px with their 6px gaps
 
 const $ = <T extends HTMLElement>(id: string) => document.getElementById(id) as T;
 
@@ -100,7 +102,7 @@ export class Realms {
     }
     // Show only whole rows: as many groups as fit between the ladder and the chronicle, with room
     // kept for the heading, the "In no group" row and the line that counts the rest.
-    const room = this.left.clientHeight - this.ladder.offsetHeight - 6;
+    const room = this.left.clientHeight - this.ladder.offsetHeight - 6 - FOLDS;
     const fit = Math.floor((room - HEAD - ROW - REST) / ROW);
     const shown = standing.slice(0, Math.max(1, Math.min(ROWS, fit)));
     const picked = this.app.selected >= 0 ? s.rootOf(this.app.selected) : -1;

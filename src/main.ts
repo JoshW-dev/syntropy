@@ -12,6 +12,7 @@ import { Story } from './ui/story.ts';
 import { Timeline } from './ui/timeline.ts';
 import { decodeOverrides, readQuery } from './ui/query.ts';
 import { Split } from './ui/split.ts';
+import { Folds } from './ui/folds.ts';
 import { View } from './ui/view.ts';
 
 const query = new URLSearchParams(location.search);
@@ -45,6 +46,7 @@ try {
     },
     reducedMotion,
   );
+  new Folds(view);
   // A link's ?k= replays the rulers its sender removed, at the ticks they removed them.
   app.start(seedFromHash() ?? randomSeed(), undefined, parseStrikes(readQuery('k')));
   const env = new Environment(app);
