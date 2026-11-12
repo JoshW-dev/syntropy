@@ -3,8 +3,8 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Syntropy: From Cells to Government</title>
-    <meta name="description" content="A research paper on Syntropy: emergent organisms from a 3D cellular automaton form tribes, hierarchies and groups that outlive their leaders, from one local allegiance rule." />
+    <title>Wade's Game of Society: From Cells to Government</title>
+    <meta name="description" content="A research paper on Wade's Game of Society: emergent organisms from a 3D cellular automaton form tribes, hierarchies and groups that outlive their leaders, from one local allegiance rule." />
     <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
     <script type="module" src="./paper.ts"></script>
   </head>
@@ -16,7 +16,7 @@
     </nav>
     <main>
       <header class="title">
-        <h1>Syntropy: From Cells to Government</h1>
+        <h1>Wade's Game of Society: From Cells to Government</h1>
         <p class="subtitle">Hierarchy and institutions among emergent organisms in a three-dimensional cellular world</p>
         <p class="author">The Syntropy Project</p>
         <p class="date">November 2026 &middot; <a href="https://github.com/JoshW-dev/syntropy">github.com/JoshW-dev/syntropy</a></p>
@@ -25,7 +25,7 @@
       <section class="abstract">
         <h2>Abstract</h2>
         <p>
-          We ask whether beings that are themselves emergent can, through local interactions alone, give rise to hierarchy, and whether that hierarchy can become an institution that outlives the individuals at its top. Syntropy couples two levels in one continuous world. A three-dimensional Life-like cellular automaton, in which a dead cell is born with 7 or 8 of its 26 neighbours alive and a live cell survives with 1 to 5, settles from noise into persistent forms. Each form that keeps its shape for twenty generations comes loose as an organism whose body is exactly its cells. Organisms eat from a regrowing resource field at a rate that scales with mass to the three-quarters power, grow and burn cells to balance their energy, divide by fission, fight, and die. They follow one another by a single rule: maximise the expected logarithm of retained resources, the product of the local odds of prevailing in a fight, the share kept after tax, a geometric control loss per rank of command, and small attention and distance costs. No rule mentions tribes, ranks, takeovers, splits, heirs or government. Of {{baselineLevels.Government.of|int}} seeded worlds run for 150 simulated years, {{baselineLevels.Tribes.reached|int}} formed kin chiefdoms, {{baselineLevels.Hierarchy.reached|int}} formed hierarchies that ruled other lineages, and {{baselineLevels.Government.reached|int}} produced a group whose members regrouped under one new leader after the old leader died, at median times of {{baselineLevels.Tribes.medianYear|f1}}, {{baselineLevels.Hierarchy.medianYear|f1}} and {{baselineLevels.Government.medianYear|f1}} simulated years. We define a social syntropy index, the normalised negentropy of the partition of organisms into groups, and use it as an order parameter. Ablations show that one ingredient is necessary: fear, the weight an organism gives to unallied mass nearby. Without it nothing forms, while actual fighting, tax and kinship change how much order forms but not whether it forms. A phase diagram in fear and tax shows a sequence of regimes from anarchy to government, with a boundary that a mean-field estimate predicts. Scrambling what the lower level passes up delays the first tribes but leaves the outcome unchanged. Whether a group survives its leader depends on how compact it is in space, and not on how concentrated its power was.
+          We ask whether beings that are themselves emergent can, through local interactions alone, give rise to hierarchy, and whether that hierarchy can become an institution that outlives the individuals at its top. The Game of Society couples two levels in one continuous world. A three-dimensional Life-like cellular automaton, in which a dead cell is born with 7 or 8 of its 26 neighbours alive and a live cell survives with 1 to 5, settles from noise into persistent forms. Each form that keeps its shape for twenty generations comes loose as an organism whose body is exactly its cells. Organisms eat from a regrowing resource field at a rate that scales with mass to the three-quarters power, grow and burn cells to balance their energy, divide by fission, fight, and die. They follow one another by a single rule: maximise the expected logarithm of retained resources, the product of the local odds of prevailing in a fight, the share kept after tax, a geometric control loss per rank of command, and small attention and distance costs. No rule mentions tribes, ranks, takeovers, splits, heirs or government. Of {{baselineLevels.Government.of|int}} seeded worlds run for 150 simulated years, {{baselineLevels.Tribes.reached|int}} formed kin chiefdoms, {{baselineLevels.Hierarchy.reached|int}} formed hierarchies that ruled other lineages, and {{baselineLevels.Government.reached|int}} produced a group whose members regrouped under one new leader after the old leader died, at median times of {{baselineLevels.Tribes.medianYear|f1}}, {{baselineLevels.Hierarchy.medianYear|f1}} and {{baselineLevels.Government.medianYear|f1}} simulated years. We define a social syntropy index, the normalised negentropy of the partition of organisms into groups, and use it as an order parameter. Ablations show that one ingredient is necessary: fear, the weight an organism gives to unallied mass nearby. Without it nothing forms, while actual fighting, tax and kinship change how much order forms but not whether it forms. A phase diagram in fear and tax shows a sequence of regimes from anarchy to government, with a boundary that a mean-field estimate predicts. Scrambling what the lower level passes up delays the first tribes but leaves the outcome unchanged. Whether a group survives its leader depends on how compact it is in space, and not on how concentrated its power was.
         </p>
         <p class="keywords"><b>Keywords:</b> emergence, cellular automata, agent-based models, dominance hierarchy, state formation, Tullock contests, Kleiber's law, negentropy, succession</p>
       </section>
@@ -35,7 +35,7 @@
         Conway's Game of Life shows that a two-line rule can produce gliders, oscillators and self-sustaining structures that nobody wrote down (Gardner 1970). Its lesson is about levels. The rule speaks only of cells and their neighbours, yet the objects worth watching are patterns many cells wide that behave as units. Biology is a stack of such levels. Molecules form cells, cells form organisms and organisms form societies, and at each step a new kind of individual appears whose parts have given up some independence (Maynard Smith and Szathm&aacute;ry 1995; Michod 1999). Human societies add a further level with no obvious counterpart in Life: lasting hierarchies in which some individuals command others, and in which the hierarchy can persist when the individuals at its top are replaced (Service 1962; Carneiro 1970; Weber 1922).
       </p>
       <p>
-        This paper connects the two traditions with one question. Can beings that are themselves emergent, assembled from cells by a Life-like rule, interact in ways that produce hierarchy, and can that hierarchy become something that behaves like government, without any rule that refers to hierarchy or government? Models of political hierarchy usually start from agents that are given, such as villages, leaders or households, and specify a separate rule for each event of interest: conquest, secession, succession (Cederman 1997; Gavrilets, Anderson and Turchin 2010). Models of multi-level emergence in artificial life usually stop at the organism (Turney 2021). We put both in a single continuous world and keep the social rule set as small as we could make it work.
+        This paper connects the two traditions with one question. Can beings that are themselves emergent, assembled from cells by a Life-like rule, interact in ways that produce hierarchy, and can that hierarchy become something that behaves like government, without any rule that refers to hierarchy or government? We call the model the Game of Society, after Conway's game. Models of political hierarchy usually start from agents that are given, such as villages, leaders or households, and specify a separate rule for each event of interest: conquest, secession, succession (Cederman 1997; Gavrilets, Anderson and Turchin 2010). Models of multi-level emergence in artificial life usually stop at the organism (Turney 2021). We put both in a single continuous world and keep the social rule set as small as we could make it work.
       </p>
       <p>The paper makes five contributions.</p>
       <ol>
@@ -47,7 +47,7 @@
       </ol>
 
       <div class="figure">
-        <img src="./figures/world.jpg" alt="A Syntropy world in year 45: groups of coloured voxel organisms hanging from ringed leaders, with lines from followers to leaders." />
+        <img src="./figures/world.jpg" alt="A world in the Game of Society in year 45: groups of coloured voxel organisms hanging from ringed leaders, with lines from followers to leaders." />
         <p class="caption"><b>Figure 1.</b> A world at year 45 (seed <span class="mono">cedar</span>), shortly after its first government. Each organism is drawn as the cells it came from, filled in its lineage's colour. A line runs from every follower to its leader in the colour of the top leader's lineage, each rank is drawn one step below the rank above it, and a ring marks each leader. A blue line on a red body means a blue leader commands it. Labels name the largest groups and their sizes.</p>
       </div>
 
@@ -338,7 +338,7 @@
 
       <div class="figure half">
         <img src="./figures/rules.svg" alt="Lattice rules: forms that hold against lattice fill." />
-        <p class="caption"><b>Figure 9.</b> The lattice-rule search: for each of 222 birth and survival rules, the number of forms holding their shape at generation 120 against the share of the lattice alive, averaged over two seeds on a \(40^3\) lattice. Most rules leave nothing that holds or fill the lattice. Syntropy's rule (red) leaves {{rules.chosen.holding|f1}} holding forms while filling {{rules.chosen.fill|pct1}} of the lattice; Bays' three-dimensional Life (gold) leaves {{rules.bays.holding|f1}}.</p>
+        <p class="caption"><b>Figure 9.</b> The lattice-rule search: for each of 222 birth and survival rules, the number of forms holding their shape at generation 120 against the share of the lattice alive, averaged over two seeds on a \(40^3\) lattice. Most rules leave nothing that holds or fill the lattice. The model's rule (red) leaves {{rules.chosen.holding|f1}} holding forms while filling {{rules.chosen.fill|pct1}} of the lattice; Bays' three-dimensional Life (gold) leaves {{rules.bays.holding|f1}}.</p>
       </div>
 
       <h2>7&nbsp;&nbsp;Discussion</h2>

@@ -1,14 +1,16 @@
-# Syntropy
+# Wade's Game of Society
 
 ![Groups of voxel organisms hanging from their leaders, coloured by lineage](docs/hero.png)
 
 ### [**Watch it run →**](https://syntropy-sim.vercel.app) &nbsp; [**Read the paper →**](https://syntropy-sim.vercel.app/paper/) &nbsp; [PDF](https://syntropy-sim.vercel.app/paper/syntropy.pdf)
 
-Syntropy is a 3D take on Conway's Game of Life that keeps climbing. Coloured cells on a lattice settle into forms. Each form that holds its shape for twenty generations comes loose as an organism made of exactly those cells, in exactly that place, while the rest of the lattice keeps running until it settles and its last cells dissolve. Organisms eat, grow a cell when they have surplus, burn one when they starve, split in two, fight and age. Then they start following each other, and the world climbs through tribes and hierarchies to groups that regroup under a new leader when the old one dies.
+Wade's Game of Society is a 3D take on Conway's Game of Life that keeps climbing, and its name is a nod to that game. Coloured cells on a lattice settle into forms. Each form that holds its shape for twenty generations comes loose as an organism made of exactly those cells, in exactly that place, while the rest of the lattice keeps running until it settles and its last cells dissolve. Organisms eat, grow a cell when they have surplus, burn one when they starve, split in two, fight and age. Then they start following each other, and the world climbs through tribes and hierarchies to groups that regroup under a new leader when the old one dies.
 
 None of that is scripted. There's no rule for tribes, ranks, takeovers, splits, heirs or government. Every organism makes one choice, over and over: follow whoever keeps it safest, net of the tax it would pay, or follow no one. Takeovers, splits and successions all come out of that one choice, and the ladder on the left of the screen only reports what a measurement noticed.
 
 The aim is to watch social behaviour come out of first principles, a handful of physical rules and one choice, and to see what follows from them.
+
+Syntropy is the paper's name for the order it measures, the opposite of entropy, and this repository and the web address keep that name.
 
 It runs in your browser with no server behind it, and each world has a seed in the URL, so a link replays the same history.
 
@@ -51,7 +53,7 @@ Everything here reads the simulation and changes nothing in it, except the one b
 
 ## The paper
 
-[Syntropy: From Cells to Government](https://syntropy-sim.vercel.app/paper/) is the full write-up: the model, the derivation of the allegiance rule (the Kelly criterion applied to Hobbes' bargain), the measurements, and the experiments. Those are a 48-world baseline, ablations of every ingredient, a phase diagram over fear and tax, an analysis of what makes a group survive its leader, and the search behind the lattice rule. Every number in it is filled in from the experiment output when the paper is built.
+[Wade's Game of Society: From Cells to Government](https://syntropy-sim.vercel.app/paper/) is the full write-up: the model, the derivation of the allegiance rule (the Kelly criterion applied to Hobbes' bargain), the measurements, and the experiments. Those are a 48-world baseline, ablations of every ingredient, a phase diagram over fear and tax, an analysis of what makes a group survive its leader, and the search behind the lattice rule. Every number in it is filled in from the experiment output when the paper is built.
 
 ## Tuning and experiments without graphics
 

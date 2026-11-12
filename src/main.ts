@@ -70,7 +70,7 @@ try {
   document.body.style.background = '';
   const note = document.createElement('p');
   note.className = 'nogl';
-  note.textContent = 'Syntropy draws with WebGL, and this browser could not start it. Try a recent Chrome, Safari, Firefox or Edge.';
+  note.textContent = 'This simulation draws with WebGL, and this browser could not start it. Try a recent Chrome, Safari, Firefox or Edge.';
   document.body.appendChild(note);
 }
 

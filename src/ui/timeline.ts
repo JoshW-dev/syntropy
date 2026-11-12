@@ -452,7 +452,7 @@ export class Timeline {
     const reached = LADDER.map((name, lv) => (lv > 0 && s.levels[lv] >= 0 ? `${name} in year ${Math.floor(s.levels[lv] / TICKS_PER_YEAR)}` : '')).filter(Boolean);
     const years = Math.floor(app.world.tick / TICKS_PER_YEAR);
     ctx.fillStyle = c.ink;
-    ctx.fillText(`${years} years of a Syntropy world. ${reached.join(', ')}.`, 48, 100);
+    ctx.fillText(`${years} years of a world in Wade's Game of Society. ${reached.join(', ')}.`, 48, 100);
     this.paint(ctx, { x: 36, y: 130, w: W - 72, h: 400 }, false);
     ctx.font = `14px ${FONT}`;
     ctx.textAlign = 'left';

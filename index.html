@@ -3,12 +3,12 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-    <title>Syntropy</title>
-    <meta name="description" content="Watch social behaviour come out of first principles. Cells on a lattice become organisms, then tribes, hierarchies and governments, with no rule that names any of them. A 3D simulation that runs in your browser, with a paper on how it works." />
+    <title>Wade's Game of Society</title>
+    <meta name="description" content="A nod to Conway's Game of Life: watch social behaviour come out of first principles. Cells on a lattice become organisms, then tribes, hierarchies and governments, with no rule that names any of them. A 3D simulation that runs in your browser, with a paper on how it works." />
     <meta name="theme-color" content="#F8F8F8" />
     <meta property="og:type" content="website" />
-    <meta property="og:title" content="Syntropy" />
-    <meta property="og:description" content="Cells become organisms, then tribes, hierarchies and governments, with no rule that names any of them." />
+    <meta property="og:title" content="Wade's Game of Society" />
+    <meta property="og:description" content="After Conway's Game of Life. Cells become organisms, then tribes, hierarchies and governments, with no rule that names any of them." />
     <meta property="og:url" content="https://syntropy-sim.vercel.app/" />
     <meta property="og:image" content="https://syntropy-sim.vercel.app/og.png" />
     <meta property="og:image:width" content="1200" />
@@ -29,7 +29,8 @@
     <canvas id="scene" aria-label="A 3D simulation of cells, organisms and the groups they form"></canvas>
 
     <header class="mast">
-      <h1>Syntropy</h1>
+      <!-- The name follows "Conway's Game of Life". On a narrow stage it breaks before "of Society". -->
+      <h1>Wade's Game <span>of Society</span></h1>
       <p>Societies from first principles</p>
     </header>
 
@@ -231,7 +232,7 @@
       </button>
     </div>
     <aside class="paper-pane" id="paper-pane" aria-label="The paper" hidden>
-      <iframe id="paper-frame" title="Syntropy: From Cells to Government"></iframe>
+      <iframe id="paper-frame" title="Wade's Game of Society: From Cells to Government"></iframe>
     </aside>
 
     <script type="module" src="/src/main.ts"></script>
